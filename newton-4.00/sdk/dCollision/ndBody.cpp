@@ -114,10 +114,20 @@ ndBodyNotify* ndBody::GetNotifyCallback() const
 	return m_notifyCallback;
 }
 
-ndMatrix ndBody::GetMatrix() const
-{
-	return m_matrix;
-}
+//ndMatrix ndBody::GetMatrix() const
+//{
+//	return m_matrix;
+//}
+//
+//ndVector ndBody::GetVelocity() const
+//{
+//	return m_veloc;
+//}
+//
+//ndVector ndBody::GetOmega() const
+//{
+//	return m_omega;
+//}
 
 ndVector ndBody::GetPosition() const
 {
@@ -132,16 +142,6 @@ ndQuaternion ndBody::GetRotation() const
 ndVector ndBody::GetGlobalGetCentreOfMass() const
 {
 	return m_globalCentreOfMass;
-}
-
-ndVector ndBody::GetVelocity() const
-{
-	return m_veloc;
-}
-
-ndVector ndBody::GetOmega() const
-{
-	return m_omega;
 }
 
 void ndBody::GetAABB(ndVector& p0, ndVector& p1) const

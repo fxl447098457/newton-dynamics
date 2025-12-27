@@ -71,9 +71,24 @@ class ndBody : public ndContainersFreeListAlloc<ndBody>
 	D_COLLISION_API const ndVector& GetCentreOfMass() const;
 	D_COLLISION_API virtual void SetCentreOfMass(const ndVector& com);
 	
-	D_COLLISION_API ndVector GetOmega() const;
-	D_COLLISION_API ndMatrix GetMatrix() const;
-	D_COLLISION_API ndVector GetVelocity() const;
+	inline ndMatrix GetMatrix() const
+	{
+		return m_matrix;
+	}
+
+	inline ndVector GetVelocity() const
+	{
+		return m_veloc;
+	}
+
+	inline ndVector GetOmega() const
+	{
+		return m_omega;
+	}
+
+	//D_COLLISION_API ndVector GetOmega() const;
+	//D_COLLISION_API ndMatrix GetMatrix() const;
+	//D_COLLISION_API ndVector GetVelocity() const;
 	D_COLLISION_API ndVector GetPosition() const;
 	D_COLLISION_API ndQuaternion GetRotation() const;
 	D_COLLISION_API ndVector GetGlobalGetCentreOfMass() const;
