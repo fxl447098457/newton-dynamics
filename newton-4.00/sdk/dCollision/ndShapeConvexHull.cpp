@@ -397,83 +397,45 @@ bool ndShapeConvexHull::Create(ndInt32 count, ndInt32 strideInBytes, const ndFlo
 				ndInt32 i0 = 0;
 				ndInt32 i1 = box.m_vertexCount - 1;
 
-				#if 0
-					do 
-					{
-						for (; i0 <= i1; i0++) 
-						{
-							ndFloat32 val = vertexNodeList[box.m_vertexStart + i0]->GetInfo()[index];
-							if (val > test) 
-							{
-								break;
-							}
-						}
-				
-						for (; i1 >= i0; i1--) 
-						{
-							ndFloat32 val = vertexNodeList[box.m_vertexStart + i1]->GetInfo()[index];
-							if (val < test) 
-							{
-								break;
-							}
-						}
-				
-						if (i0 < i1) 
-						{
-							dSwap(vertexNodeList[box.m_vertexStart + i0], vertexNodeList[box.m_vertexStart + i1]);
-							i0++;
-							i1--;
-						}
-					} while (i0 <= i1);
-					if (i0 == 0) 
-					{
-						i0 = box.m_vertexCount / 2;
-					}
-					if (i0 >= (box.m_vertexCount - 1)) 
-					{
-						i0 = box.m_vertexCount / 2;
-					}
-				#else
-					while (i0 < i1)
-					{
-						while ((vertexNodeList[box.m_vertexStart + i0]->GetInfo()[index] <= test) && (i0 < i1))
-						{
-							++i0;
-						};
-
-						while ((vertexNodeList[box.m_vertexStart + i1]->GetInfo()[index] > test) && (i0 < i1))
-						{
-							--i1;
-						}
-
-						ndAssert(i0 <= i1);
-						if (i0 < i1)
-						{
-							ndSwap(vertexNodeList[box.m_vertexStart + i0], vertexNodeList[box.m_vertexStart + i1]);
-							++i0;
-							--i1;
-						}
-					}
-
-					while ((vertexNodeList[box.m_vertexStart + i0]->GetInfo()[index] <= test) && (i0 < box.m_vertexCount))
+				while (i0 < i1)
+				{
+					while ((vertexNodeList[box.m_vertexStart + i0]->GetInfo()[index] <= test) && (i0 < i1))
 					{
 						++i0;
 					};
 
-					#ifdef _DEBUG
-					ndAssert(i0 > 0);
-					ndAssert(i0 < box.m_vertexCount);
-					for (ndInt32 i = 0; i < i0; ++i)
+					while ((vertexNodeList[box.m_vertexStart + i1]->GetInfo()[index] > test) && (i0 < i1))
 					{
-						ndAssert(vertexNodeList[box.m_vertexStart + i]->GetInfo()[index] <= test);
+						--i1;
 					}
 
-					for (ndInt32 i = i0; i < box.m_vertexCount; ++i)
+					ndAssert(i0 <= i1);
+					if (i0 < i1)
 					{
-						ndAssert(vertexNodeList[box.m_vertexStart + i]->GetInfo()[index] > test);
+						ndSwap(vertexNodeList[box.m_vertexStart + i0], vertexNodeList[box.m_vertexStart + i1]);
+						++i0;
+						--i1;
 					}
-					#endif
-				#endif	
+				}
+
+				while ((vertexNodeList[box.m_vertexStart + i0]->GetInfo()[index] <= test) && (i0 < box.m_vertexCount))
+				{
+					++i0;
+				};
+
+				#ifdef _DEBUG
+				ndAssert(i0 > 0);
+				ndAssert(i0 < box.m_vertexCount);
+				for (ndInt32 i = 0; i < i0; ++i)
+				{
+					ndAssert(vertexNodeList[box.m_vertexStart + i]->GetInfo()[index] <= test);
+				}
+
+				for (ndInt32 i = i0; i < box.m_vertexCount; ++i)
+				{
+					ndAssert(vertexNodeList[box.m_vertexStart + i]->GetInfo()[index] > test);
+				}
+				#endif
 		
 				{
 					// insert right branch AABB
@@ -618,7 +580,7 @@ bool ndShapeConvexHull::Create(ndInt32 count, ndInt32 strideInBytes, const ndFlo
 		for (ndInt32 i = m_vertexCount; i < m_soaVertexCount * 4; ++i)
 		{
 			array[i] = m_vertex[0];
-			indexptr[i] = ndFloat32(i);
+			indexptr[i] = ndFloat32(0);
 		}
 
 		for (ndInt32 i = 0; i < m_soaVertexCount; ++i)
@@ -811,6 +773,7 @@ ndVector ndShapeConvexHull::SupportVertexBruteForce(const ndVector& dir, ndInt32
 		*vertexIndex = index;
 	}
 	ndAssert(index != -1);
+	ndAssert(index < m_vertexCount);
 	return m_vertex[index];
 }
 
