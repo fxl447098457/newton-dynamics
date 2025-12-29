@@ -104,59 +104,6 @@ const char* ndDynamicsUpdateSoa::GetStringId() const
 	return "Soa";
 }
 
-void ndDynamicsUpdateSoa::DetermineSleepStates()
-{
-	D_TRACKTIME();
-	auto CalculateSleepState = ndMakeObject::ndFunction([this](ndInt32 groupId, ndInt32)
-	{
-		D_TRACKTIME_NAMED(CalculateSleepState);
-		ndScene* const scene = m_world->GetScene();
-		const ndArray<ndInt32>& bodyIndex = GetJointForceIndexBuffer();
-		const ndJointBodyPairIndex* const jointBodyPairIndexBuffer = &GetJointBodyPairIndexBuffer()[0];
-		ndConstraint** const jointArray = &scene->GetActiveContactArray()[0];
-		ndBodyKinematic** const bodyArray = &scene->GetActiveBodyArray()[0];
-
-		const ndVector zero(ndVector::m_zero);
-
-		const ndInt32 m = groupId;
-		const ndInt32 index = bodyIndex[m];
-		ndBodyKinematic* const body = bodyArray[jointBodyPairIndexBuffer[index].m_body];
-		ndAssert(body->m_isStatic <= 1);
-		ndAssert(body->m_index == jointBodyPairIndexBuffer[index].m_body);
-		const ndInt32 mask = ndInt32(body->m_isStatic) - 1;
-		const ndInt32 count = mask & (bodyIndex[m + 1] - index);
-		if (count)
-		{
-			ndUnsigned8 equilibrium = body->m_isJointFence0;
-			if (equilibrium & body->m_autoSleep)
-			{
-				for (ndInt32 k = 0; k < count; ++k)
-				{
-					const ndJointBodyPairIndex& scan = jointBodyPairIndexBuffer[index + k];
-					ndConstraint* const joint = jointArray[scan.m_joint >> 1];
-					ndBodyKinematic* const body1 = (joint->GetBody0() == body) ? joint->GetBody1() : joint->GetBody0();
-					ndAssert(body1 != body);
-					equilibrium = ndUnsigned8(equilibrium & body1->m_isJointFence0);
-				}
-			}
-			body->m_equilibrium = ndUnsigned8(equilibrium & body->m_autoSleep);
-			if (body->m_equilibrium)
-			{
-				body->m_veloc = zero;
-				body->m_omega = zero;
-			}
-		}
-	});
-
-	ndScene* const scene = m_world->GetScene();
-	if (scene->GetActiveContactArray().GetCount())
-	{
-		const ndArray<ndInt32>& bodyIndex = GetJointForceIndexBuffer();
-		const ndInt32 bodyCount = ndInt32(bodyIndex.GetCount()) - 1;
-		scene->ParallelExecute(CalculateSleepState, bodyCount, scene->OptimalGroupBatch(bodyCount));
-	}
-}
-
 void ndDynamicsUpdateSoa::SortJoints()
 {
 	D_TRACKTIME();
@@ -432,34 +379,34 @@ void ndDynamicsUpdateSoa::IntegrateUnconstrainedBodies()
 	}
 }
 
-void ndDynamicsUpdateSoa::IntegrateBodies()
-{
-	D_TRACKTIME();
-	ndScene* const scene = m_world->GetScene();
-	const ndVector invTime(m_invTimestep);
-	const ndFloat32 timestep = scene->GetTimestep();
-
-	auto IntegrateBodies = ndMakeObject::ndFunction([this, timestep, invTime](ndInt32 groupId, ndInt32)
-	{
-		D_TRACKTIME_NAMED(IntegrateBodies);
-		const ndWorld* const world = m_world;
-		const ndArray<ndBodyKinematic*>& bodyArray = GetBodyIslandOrder();
-
-		const ndFloat32 speedFreeze2 = world->m_freezeSpeed2;
-		const ndFloat32 accelFreeze2 = world->m_freezeAccel2;
-
-		ndBodyKinematic* const body = bodyArray[groupId];
-		if (!body->m_equilibrium)
-		{
-			body->SetAcceleration(invTime * (body->m_veloc - body->m_accel), invTime * (body->m_omega - body->m_alpha));
-			body->IntegrateVelocity(timestep);
-		}
-		body->EvaluateSleepState(speedFreeze2, accelFreeze2);
-	});
-	const ndArray<ndBodyKinematic*>& bodyArray = GetBodyIslandOrder();
-	const ndInt32 count = ndInt32(bodyArray.GetCount());
-	scene->ParallelExecute(IntegrateBodies, count, scene->OptimalGroupBatch(count));
-}
+//void ndDynamicsUpdateSoa::IntegrateBodies()
+//{
+//	D_TRACKTIME();
+//	ndScene* const scene = m_world->GetScene();
+//	const ndVector invTime(m_invTimestep);
+//	const ndFloat32 timestep = scene->GetTimestep();
+//
+//	auto IntegrateBodies = ndMakeObject::ndFunction([this, timestep, invTime](ndInt32 groupId, ndInt32)
+//	{
+//		D_TRACKTIME_NAMED(IntegrateBodies);
+//		const ndWorld* const world = m_world;
+//		const ndArray<ndBodyKinematic*>& bodyArray = GetBodyIslandOrder();
+//
+//		const ndFloat32 speedFreeze2 = world->m_freezeSpeed2;
+//		const ndFloat32 accelFreeze2 = world->m_freezeAccel2;
+//
+//		ndBodyKinematic* const body = bodyArray[groupId];
+//		if (!body->m_equilibrium)
+//		{
+//			body->SetAcceleration(invTime * (body->m_veloc - body->m_accel), invTime * (body->m_omega - body->m_alpha));
+//			body->IntegrateVelocity(timestep);
+//		}
+//		body->EvaluateSleepState(speedFreeze2, accelFreeze2);
+//	});
+//	const ndArray<ndBodyKinematic*>& bodyArray = GetBodyIslandOrder();
+//	const ndInt32 count = ndInt32(bodyArray.GetCount());
+//	scene->ParallelExecute(IntegrateBodies, count, scene->OptimalGroupBatch(count));
+//}
 
 void ndDynamicsUpdateSoa::InitWeights()
 {
@@ -517,141 +464,35 @@ void ndDynamicsUpdateSoa::InitWeights()
 	}
 }
 
-void ndDynamicsUpdateSoa::InitBodyArray()
-{
-	D_TRACKTIME();
-	ndScene* const scene = m_world->GetScene();
-	const ndFloat32 timestep = scene->GetTimestep();
-
-	auto InitBodyArray = ndMakeObject::ndFunction([this, timestep](ndInt32 groupId, ndInt32)
-	{
-		D_TRACKTIME_NAMED(InitBodyArray);
-		const ndArray<ndBodyKinematic*>& bodyArray = GetBodyIslandOrder();
-
-		ndBodyKinematic* const body = bodyArray[groupId];
-		ndAssert(body);
-		ndAssert(body->m_isConstrained | body->m_isStatic);
-
-		body->UpdateInvInertiaMatrix();
-		body->AddDampingAcceleration(timestep);
-		const ndVector angularMomentum(body->CalculateAngularMomentum());
-		body->m_gyroTorque = body->m_omega.CrossProduct(angularMomentum);
-		body->m_gyroAlpha = body->m_invWorldInertiaMatrix.RotateVector(body->m_gyroTorque);
-
-		body->m_accel = body->m_veloc;
-		body->m_alpha = body->m_omega;
-		body->m_gyroRotation = body->m_rotation;
-	});
-	const ndArray<ndBodyKinematic*>& bodyArray = GetBodyIslandOrder();
-	const ndInt32 count = ndInt32(bodyArray.GetCount() - GetUnconstrainedBodyCount());
-	scene->ParallelExecute(InitBodyArray, count, scene->OptimalGroupBatch(count));
-}
-
-void ndDynamicsUpdateSoa::GetJacobianDerivatives(ndConstraint* const joint)
-{
-	ndConstraintDescritor constraintParam;
-	ndAssert(joint->GetRowsCount() <= D_CONSTRAINT_MAX_ROWS);
-	for (ndInt32 i = ndInt32(joint->GetRowsCount() - 1); i >= 0; i--)
-	{
-		constraintParam.m_forceBounds[i].m_low = D_MIN_BOUND;
-		constraintParam.m_forceBounds[i].m_upper = D_MAX_BOUND;
-		constraintParam.m_forceBounds[i].m_jointForce = nullptr;
-		constraintParam.m_forceBounds[i].m_normalIndex = D_INDEPENDENT_ROW;
-	}
-
-	constraintParam.m_rowsCount = 0;
-	constraintParam.m_timestep = m_timestep;
-	constraintParam.m_invTimestep = m_invTimestep;
-	joint->JacobianDerivative(constraintParam);
-	const ndInt32 dof = constraintParam.m_rowsCount;
-	ndAssert(dof <= joint->m_rowCount);
-
-	if (joint->GetAsContact())
-	{
-		ndContact* const contactJoint = joint->GetAsContact();
-		contactJoint->m_isInSkeletonLoop = 0;
-		ndSkeletonContainer* const skeleton0 = contactJoint->GetBody0()->GetSkeleton();
-		ndSkeletonContainer* const skeleton1 = contactJoint->GetBody1()->GetSkeleton();
-		if (skeleton0 && (skeleton0 == skeleton1))
-		{
-			if (contactJoint->IsSkeletonSelftCollision())
-			{
-				contactJoint->m_isInSkeletonLoop = 1;
-				skeleton0->AddCloseLoopJoint(contactJoint);
-			}
-		}
-		else
-		{
-			if (skeleton0 && !skeleton1)
-			{
-				contactJoint->m_isInSkeletonLoop = 1;
-				skeleton0->AddCloseLoopJoint(contactJoint);
-			}
-			else if (skeleton1 && !skeleton0)
-			{
-				contactJoint->m_isInSkeletonLoop = 1;
-				skeleton1->AddCloseLoopJoint(contactJoint);
-			}
-		}
-	}
-	else
-	{
-		ndJointBilateralConstraint* const bilareral = joint->GetAsBilateral();
-		ndAssert(bilareral);
-		if (!bilareral->m_isInSkeleton && (bilareral->GetSolverModel() == m_jointkinematicAttachment))
-		{
-			ndSkeletonContainer* const skeleton0 = bilareral->m_body0->GetSkeleton();
-			ndSkeletonContainer* const skeleton1 = bilareral->m_body1->GetSkeleton();
-			if (skeleton0 || skeleton1)
-			{
-				if (skeleton0 && !skeleton1)
-				{
-					bilareral->m_isInSkeletonLoop = 1;
-					skeleton0->AddCloseLoopJoint(bilareral);
-				}
-				else if (skeleton1 && !skeleton0)
-				{
-					bilareral->m_isInSkeletonLoop = 1;
-					skeleton1->AddCloseLoopJoint(bilareral);
-				}
-			}
-		}
-	}
-
-	joint->m_rowCount = dof;
-	const ndInt32 baseIndex = joint->m_rowStart;
-	for (ndInt32 i = 0; i < dof; ++i)
-	{
-		ndAssert(constraintParam.m_forceBounds[i].m_jointForce);
-
-		ndLeftHandSide* const row = &m_leftHandSide[baseIndex + i];
-		ndRightHandSide* const rhs = &m_rightHandSide[baseIndex + i];
-
-		row->m_Jt = constraintParam.m_jacobian[i];
-		rhs->m_diagDamp = ndFloat32(0.0f);
-		rhs->m_diagonalRegularizer = ndMax(constraintParam.m_diagonalRegularizer[i], ndFloat32(1.0e-5f));
-
-		rhs->m_positError = constraintParam.m_positError[i];
-		rhs->m_speedError = constraintParam.m_speedError[i];
-		rhs->m_coordenateAccel = constraintParam.m_jointAccel[i];
-		rhs->m_restitution = constraintParam.m_restitution[i];
-		rhs->m_penetration = constraintParam.m_penetration[i];
-		rhs->m_penetrationStiffness = constraintParam.m_penetrationStiffness[i];
-		rhs->m_lowerBoundFrictionCoefficent = constraintParam.m_forceBounds[i].m_low;
-		rhs->m_upperBoundFrictionCoefficent = constraintParam.m_forceBounds[i].m_upper;
-		rhs->m_jointFeebackForce = constraintParam.m_forceBounds[i].m_jointForce;
-
-		ndAssert(constraintParam.m_forceBounds[i].m_normalIndex >= -2);
-		rhs->m_normalForceIndex = constraintParam.m_forceBounds[i].m_normalIndex;
-
-		rhs->SetSanityCheck(joint);
-		ndAssert(rhs->SanityCheck());
-		if (rhs->m_normalForceIndex == D_OVERRIDE_FRICTION_ROW)
-		{
-			rhs->m_normalForceIndex = D_INDEPENDENT_ROW;
-		}
-	}
-}
+//void ndDynamicsUpdateSoa::InitBodyArray()
+//{
+//	D_TRACKTIME();
+//	ndScene* const scene = m_world->GetScene();
+//	const ndFloat32 timestep = scene->GetTimestep();
+//
+//	auto InitBodyArray = ndMakeObject::ndFunction([this, timestep](ndInt32 groupId, ndInt32)
+//	{
+//		D_TRACKTIME_NAMED(InitBodyArray);
+//		const ndArray<ndBodyKinematic*>& bodyArray = GetBodyIslandOrder();
+//
+//		ndBodyKinematic* const body = bodyArray[groupId];
+//		ndAssert(body);
+//		ndAssert(body->m_isConstrained | body->m_isStatic);
+//
+//		body->UpdateInvInertiaMatrix();
+//		body->AddDampingAcceleration(timestep);
+//		const ndVector angularMomentum(body->CalculateAngularMomentum());
+//		body->m_gyroTorque = body->m_omega.CrossProduct(angularMomentum);
+//		body->m_gyroAlpha = body->m_invWorldInertiaMatrix.RotateVector(body->m_gyroTorque);
+//
+//		body->m_accel = body->m_veloc;
+//		body->m_alpha = body->m_omega;
+//		body->m_gyroRotation = body->m_rotation;
+//	});
+//	const ndArray<ndBodyKinematic*>& bodyArray = GetBodyIslandOrder();
+//	const ndInt32 count = ndInt32(bodyArray.GetCount() - GetUnconstrainedBodyCount());
+//	scene->ParallelExecute(InitBodyArray, count, scene->OptimalGroupBatch(count));
+//}
 
 void ndDynamicsUpdateSoa::InitJacobianMatrix()
 {
@@ -1067,7 +908,6 @@ void ndDynamicsUpdateSoa::RegenerateSkeletonJacobians(ndSkeletonContainer* const
 			ndAssert(constraintParam.m_forceBounds[i].m_normalIndex >= -2);
 			rhs->m_normalForceIndex = constraintParam.m_forceBounds[i].m_normalIndex;
 
-			rhs->SetSanityCheck(joint);
 			ndAssert(rhs->SanityCheck());
 			if (rhs->m_normalForceIndex == D_OVERRIDE_FRICTION_ROW)
 			{
@@ -1181,131 +1021,11 @@ void ndDynamicsUpdateSoa::RegenerateSkeletonJacobians(ndSkeletonContainer* const
 	}
 }
 
-void ndDynamicsUpdateSoa::UpdateForceFeedback()
-{
-	D_TRACKTIME();
-	ndScene* const scene = m_world->GetScene();
-	const ndArray<ndConstraint*>& jointArray = scene->GetActiveContactArray();
-
-	auto UpdateForceFeedback = ndMakeObject::ndFunction([this, &jointArray](ndInt32 groupId, ndInt32)
-	{
-		D_TRACKTIME_NAMED(UpdateForceFeedback);
-		ndArray<ndRightHandSide>& rightHandSide = m_rightHandSide;
-		const ndArray<ndLeftHandSide>& leftHandSide = m_leftHandSide;
-
-		ndVector8 zero(ndFloat32(0.0f));
-		const ndFloat32 timestepRK = GetTimestepRK();
-
-		ndConstraint* const joint = jointArray[groupId];
-		const ndInt32 rows = joint->m_rowCount;
-		const ndInt32 first = joint->m_rowStart;
-
-		ndVector8 force0(zero);
-		ndVector8 force1(zero);
-		for (ndInt32 k = 0; k < rows; ++k)
-		{
-			const ndLeftHandSide* const lhs = &leftHandSide[k + first];
-			const ndRightHandSide* const rhs = &rightHandSide[k + first];
-			ndAssert(ndCheckFloat(rhs->m_force));
-			rhs->m_jointFeebackForce->Push(rhs->m_force);
-			rhs->m_jointFeebackForce->m_force = rhs->m_force;
-			rhs->m_jointFeebackForce->m_impact = rhs->m_maxImpact * timestepRK;
-
-			const ndVector8 f(rhs->m_force);
-			force0 = force0.MulAdd((ndVector8&)lhs->m_Jt.m_jacobianM0, f);
-			force1 = force1.MulAdd((ndVector8&)lhs->m_Jt.m_jacobianM1, f);
-		}
-		joint->m_forceBody0 = force0.GetLow();
-		joint->m_torqueBody0 = force0.GetHigh();
-		joint->m_forceBody1 = force1.GetLow();
-		joint->m_torqueBody1 = force1.GetHigh();
-		joint->UpdateParameters();
-	});
-	const ndInt32 count = ndInt32(jointArray.GetCount());
-	scene->ParallelExecute(UpdateForceFeedback, count, scene->OptimalGroupBatch(count));
-}
-
-void ndDynamicsUpdateSoa::InitSkeletons()
-{
-	D_TRACKTIME();
-	ndScene* const scene = m_world->GetScene();
-	const ndArray<ndSkeletonContainer*>& activeSkeletons = m_world->m_activeSkeletons;
-
-	if (activeSkeletons.GetCount())
-	{
-		for (ndInt32 i = ndInt32(activeSkeletons.GetCount()) - 1; i >= 0; --i)
-		{
-			ndSkeletonContainer* const skeleton = activeSkeletons[i];
-			if (skeleton->m_transientLoopingContacts.GetCount())
-			{
-				skeleton->AddExtraContacts();
-			}
-		}
-
-		auto InitSkeletons = ndMakeObject::ndFunction([this, &activeSkeletons](ndInt32 groupId, ndInt32)
-		{
-			D_TRACKTIME_NAMED(InitSkeletons);
-			ndArray<ndRightHandSide>& rightHandSide = m_rightHandSide;
-			const ndArray<ndLeftHandSide>& leftHandSide = m_leftHandSide;
-
-			ndSkeletonContainer* const skeleton = activeSkeletons[groupId];
-			skeleton->InitMassMatrix(m_timestep, &leftHandSide[0], &rightHandSide[0]);
-		});
-
-		const ndInt32 count = ndInt32(activeSkeletons.GetCount());
-		if (count)
-		{
-			scene->ParallelExecute(InitSkeletons, count, 1);
-		}
-	}
-}
-
-void ndDynamicsUpdateSoa::UpdateSkeletons()
-{
-	D_TRACKTIME();
-	ndScene* const scene = m_world->GetScene();
-	const ndArray<ndSkeletonContainer*>& activeSkeletons = m_world->m_activeSkeletons;
-
-	auto UpdateSkeletons = ndMakeObject::ndFunction([this, &activeSkeletons](ndInt32 groupId, ndInt32)
-	{
-		D_TRACKTIME_NAMED(UpdateSkeletons);
-		ndJacobian* const internalForces = &GetInternalForces()[0];
-
-		ndSkeletonContainer* const skeleton = activeSkeletons[groupId];
-		skeleton->CalculateReactionForces(internalForces);
-	});
-
-	const ndInt32 count = ndInt32(activeSkeletons.GetCount());
-	if (count)
-	{
-		scene->ParallelExecute(UpdateSkeletons, count, 1);
-	}
-}
-
 void ndDynamicsUpdateSoa::CalculateJointsAcceleration()
 {
 	D_TRACKTIME();
 	ndScene* const scene = m_world->GetScene();
 	const ndArray<ndConstraint*>& jointArray = scene->GetActiveContactArray();
-
-	auto CalculateJointsAcceleration = ndMakeObject::ndFunction([this, &jointArray](ndInt32 groupId, ndInt32)
-	{
-		D_TRACKTIME_NAMED(CalculateJointsAcceleration);
-		ndJointAccelerationDecriptor joindDesc;
-		joindDesc.m_timestep = m_timestepRK;
-		joindDesc.m_invTimestep = m_invTimestepRK;
-		joindDesc.m_firstPassCoefFlag = m_firstPassCoef;
-		ndArray<ndLeftHandSide>& leftHandSide = m_leftHandSide;
-		ndArray<ndRightHandSide>& rightHandSide = m_rightHandSide;
-
-		ndConstraint* const joint = jointArray[groupId];
-		const ndInt32 pairStart = joint->m_rowStart;
-		joindDesc.m_rowsCount = joint->m_rowCount;
-		joindDesc.m_leftHandSide = &leftHandSide[pairStart];
-		joindDesc.m_rightHandSide = &rightHandSide[pairStart];
-		joint->JointAccelerations(&joindDesc);
-	});
-
 	auto UpdateAcceleration = ndMakeObject::ndFunction([this, &jointArray](ndInt32 groupId, ndInt32)
 	{
 		D_TRACKTIME_NAMED(UpdateAcceleration);
@@ -1356,58 +1076,12 @@ void ndDynamicsUpdateSoa::CalculateJointsAcceleration()
 			}
 		}
 	});
-	const ndInt32 jointCount = ndInt32(jointArray.GetCount());
-	scene->ParallelExecute(CalculateJointsAcceleration, jointCount, scene->OptimalGroupBatch(jointCount));
-	m_firstPassCoef = ndFloat32(1.0f);
+	ndDynamicsUpdate::CalculateJointsAcceleration();
 
 	const ndInt32 mask = -ndInt32(ND_SIMD8_WORK_GROUP_SIZE);
+	const ndInt32 jointCount = ndInt32(jointArray.GetCount());
 	const ndInt32 soaJointCountBatches = ((jointCount + ND_SIMD8_WORK_GROUP_SIZE - 1) & mask) / ND_SIMD8_WORK_GROUP_SIZE;
 	scene->ParallelExecute(UpdateAcceleration, soaJointCountBatches, scene->OptimalGroupBatch(soaJointCountBatches));
-}
-
-void ndDynamicsUpdateSoa::IntegrateBodiesVelocity()
-{
-	D_TRACKTIME();
-	ndScene* const scene = m_world->GetScene();
-
-	auto IntegrateBodiesVelocity = ndMakeObject::ndFunction([this](ndInt32 groupId, ndInt32)
-	{
-		D_TRACKTIME_NAMED(IntegrateBodiesVelocity);
-		ndArray<ndBodyKinematic*>& bodyArray = GetBodyIslandOrder();
-		const ndArray<ndJacobian>& internalForces = GetInternalForces();
-
-		const ndVector timestep4(GetTimestepRK());
-		const ndVector speedFreeze2(m_world->m_freezeSpeed2 * ndFloat32(0.1f));
-
-		ndBodyKinematic* const body = bodyArray[groupId];
-
-		ndAssert(body);
-		ndAssert(body->m_isConstrained);
-		const ndInt32 index = body->m_index;
-		const ndJacobian& forceAndTorque = internalForces[index];
-		const ndVector force(body->GetForce() + forceAndTorque.m_linear);
-		const ndVector torque(body->GetTorque() + forceAndTorque.m_angular - body->GetGyroTorque());
-		const ndJacobian velocStep(body->IntegrateForceAndToque(force, torque, timestep4));
-
-		if (!body->m_equilibrium0)
-		{
-			body->m_veloc += velocStep.m_linear;
-			body->m_omega += velocStep.m_angular;
-			body->IntegrateGyroSubstep(timestep4);
-		}
-		else
-		{
-			const ndVector velocStep2(velocStep.m_linear.DotProduct(velocStep.m_linear));
-			const ndVector omegaStep2(velocStep.m_angular.DotProduct(velocStep.m_angular));
-			const ndVector test(((velocStep2 > speedFreeze2) | (omegaStep2 > speedFreeze2)) & ndVector::m_negOne);
-			const ndUnsigned8 equilibrium = ndUnsigned8(test.GetSignMask() ? 0 : 1);
-			body->m_equilibrium0 = equilibrium;
-		}
-		ndAssert(body->m_veloc.m_w == ndFloat32(0.0f));
-		ndAssert(body->m_omega.m_w == ndFloat32(0.0f));
-	});
-	const ndInt32 count = ndInt32(GetBodyIslandOrder().GetCount() - GetUnconstrainedBodyCount());
-	scene->ParallelExecute(IntegrateBodiesVelocity, count, scene->OptimalGroupBatch(count));
 }
 
 void ndDynamicsUpdateSoa::CalculateJointsForce()

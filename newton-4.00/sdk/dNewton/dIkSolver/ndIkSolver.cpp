@@ -174,7 +174,6 @@ void ndIkSolver::GetJacobianDerivatives(ndConstraint* const joint)
 		rhs->m_normalForceIndex = frictionIndex;
 		rhs->m_normalForceIndexFlat = ~mask & (frictionIndex + baseIndex);
 
-		rhs->SetSanityCheck(joint);
 		ndAssert(rhs->SanityCheck());
 	}
 }
