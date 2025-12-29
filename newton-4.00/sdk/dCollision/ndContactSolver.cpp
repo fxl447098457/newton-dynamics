@@ -635,7 +635,7 @@ ndInt32 ndContactSolver::CalculateClosestSimplex()
 		index = m_vertexIndex;
 	}
 	
-	ndVector bestNormal (m_separatingVector);
+	ndBigVector bestNormal (m_separatingVector);
 	
 	ndInt32 iter = 0;
 	ndInt32 cycling = 0;
@@ -661,12 +661,12 @@ ndInt32 ndContactSolver::CalculateClosestSimplex()
 			return -index;
 		}
 	
-		const ndVector dir (v.Scale (-ndRsqrt(dist)));
+		const ndBigVector dir (v.Scale (-ndRsqrt(dist)));
 		ndAssert (dir.m_w == ndFloat32 (0.0f));
 		SupportVertex (dir, index);
 	
 		const ndBigVector w (m_hullDiff[index]);
-		const ndVector wv (w - v);
+		const ndBigVector wv (w - v);
 		ndAssert (wv.m_w == ndFloat32 (0.0f));
 		const ndFloat64 dist1 = dir.DotProduct(wv).GetScalar();
 		if (dist1 < ndFloat64 (1.0e-3f)) 
