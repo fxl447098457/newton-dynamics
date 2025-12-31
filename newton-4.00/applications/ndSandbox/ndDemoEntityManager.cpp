@@ -44,12 +44,12 @@
 //#define DEFAULT_SCENE	17		// cart pole SAC trained controller
 //#define DEFAULT_SCENE	18		// cart pole PPO trained controller
 //#define DEFAULT_SCENE	19		// unicycle PPO trained controller
-#define DEFAULT_SCENE	20		// procedurally animated quadruped spider
+//#define DEFAULT_SCENE	20		// procedurally animated quadruped spider
 
 // These are the machine learning training demos
 //#define DEFAULT_SCENE			(MACHINE_LEARNING_BASE + 0)	// train cart pole using SAC agent
 //#define DEFAULT_SCENE			(MACHINE_LEARNING_BASE + 1)	// train cart pole using PPO agent
-//#define DEFAULT_SCENE			(MACHINE_LEARNING_BASE + 2)	// train double pendulu unycycle using PPO agent
+#define DEFAULT_SCENE			(MACHINE_LEARNING_BASE + 2)	// train double pendulu unycycle using PPO agent
 
 // legacy demos 
 //#define DEFAULT_SCENE	8		// particle fluid

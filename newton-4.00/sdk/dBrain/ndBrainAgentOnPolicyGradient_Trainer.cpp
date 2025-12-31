@@ -765,7 +765,6 @@ void ndBrainAgentOnPolicyGradient_Trainer::OptimizeCritic()
 	}
 }
 
-//#pragma optimize( "", off )
 void ndBrainAgentOnPolicyGradient_Trainer::OptimizePolicy()
 {
 	m_policyGradientAccumulator->Set(ndBrainFloat(0.0f));
@@ -977,7 +976,6 @@ void ndBrainAgentOnPolicyGradient_Trainer::OptimizedSurrogatePolicy()
 	m_policyTrainer->ApplyLearnRate(m_learnRate);
 }
 
-#pragma optimize( "", off )
 ndBrainFloat ndBrainAgentOnPolicyGradient_Trainer::CalculateKLdivergence()
 {
 	// https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
@@ -1033,7 +1031,6 @@ ndBrainFloat ndBrainAgentOnPolicyGradient_Trainer::CalculateKLdivergence()
 	return ndBrainFloat(divergence / ndFloat32(m_numberOfGpuTransitions));
 }
 
-#pragma optimize( "", off )
 void ndBrainAgentOnPolicyGradient_Trainer::Optimize()
 {
 	UpdateScore();

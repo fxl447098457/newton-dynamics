@@ -141,7 +141,8 @@ namespace ndUnicycleTrainer_ppo
 			loader.m_mesh->m_matrix = loader.m_mesh->m_matrix * matrix;
 			
 			// create an articulated model
-			const ndInt32 numberOfAgents = 10;
+			//const ndInt32 numberOfAgents = 10;
+			const ndInt32 numberOfAgents = 1;
 			for (ndInt32 i = 0; i < numberOfAgents; ++i)
 			{
 				ndFloat32 x = ndFloat32(10.0f) * (ndRand() - ndFloat32(0.5f));
@@ -296,7 +297,7 @@ void ndUnicyclePpoTraining(ndDemoEntityManager* const scene)
 	scene->RegisterPostUpdate(trainer);
 
 	// supress v sync refresh rate for fast tranning
-	scene->SetAcceleratedUpdate();
+	//scene->SetAcceleratedUpdate();
 	
 	matrix.m_posit.m_x -= 0.0f;
 	matrix.m_posit.m_y += 0.5f;

@@ -96,7 +96,6 @@ namespace ndCarpolePlayer
 		GetModel()->GetAsModelArticulation()->ClearMemory();
 	}
 
-	#pragma optimize( "", off )
 	bool ndController::IsTerminal() const
 	{
 		const ndJointHinge* const hinge = (ndJointHinge*)*m_poleHinge;
@@ -108,7 +107,6 @@ namespace ndCarpolePlayer
 		return isdead;
 	}
 
-	#pragma optimize( "", off )
 	ndBrainFloat ndController::CalculateReward() const
 	{
 		if (IsTerminal())

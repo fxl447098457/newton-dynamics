@@ -23,17 +23,25 @@ namespace ndUnicyclePlayer
 	#define CONTROLLER_NAME_SAC		"unicycleSac"
 	#define CONTROLLER_NAME_PPO		"unicyclePpo"
 
-	#define CART_MASS				ndFloat32(10.0f)
-	#define POLE_MASS				ndFloat32(5.0f)
+	#define BOX_MASS				ndFloat32(20.0f)
+	#define POLE_MASS				ndFloat32(1.0f)
+	#define BALL_MASS				ndFloat32(5.0f)
 
-	#define TRAJECTORY_STEPS		(1024 * 4)
+	//#define TRAJECTORY_STEPS		(1024 * 4)
+	//
+	//#define PUSH_ACCEL				ndBrainFloat (-10.0f * DEMO_GRAVITY)
+	//#define REWARD_MIN_ANGLE		ndBrainFloat (20.0f * ndDegreeToRad)
 
-	#define PUSH_ACCEL				ndBrainFloat (-10.0f * DEMO_GRAVITY)
-	#define REWARD_MIN_ANGLE		ndBrainFloat (20.0f * ndDegreeToRad)
+	#define ND_MAX_LEG_JOINT_ANGLE	(ndFloat32 (45.0f) * ndDegreeToRad)
+
+	#define ND_MAX_WHEEL_ALPHA		(ndFloat32 (500.0f))
+
+	#define ND_TERMINATION_ANGLE	(ndFloat32 (45.0f) * ndDegreeToRad)
+	#define ND_TRAJECTORY_STEPS		(1024 * 4)
 
 	enum ndActionSpace
 	{
-		m_softPush,
+		m_wheelTorque,
 		m_actionsSize
 	};
 
@@ -41,7 +49,9 @@ namespace ndUnicyclePlayer
 	{
 		m_poleAngle,
 		m_poleOmega,
-		m_cartSpeed,
+		m_wheelOmega,
+		m_velocity,
+		m_hasSupportContact,
 		m_observationsSize
 	};
 
@@ -71,7 +81,6 @@ namespace ndUnicyclePlayer
 			{
 				return m_owner->IsTerminal();
 			}
-
 			ndController* m_owner;
 		};
 
@@ -80,6 +89,8 @@ namespace ndUnicyclePlayer
 		void Update(ndFloat32 timestep);
 
 		void ResetModel();
+		ndBrainFloat IsOnAir() const;
+
 		bool IsTerminal() const;
 		ndBrainFloat CalculateReward() const;
 		void ApplyActions(ndBrainFloat* const actions);
@@ -93,10 +104,12 @@ namespace ndUnicyclePlayer
 
 		static ndModelArticulation* CreateModel(ndDemoEntityManager* const scene, const ndMatrix& location, const ndRenderMeshLoader& loader, const char* const name);
 
-		ndSharedPtr<ndBody> m_cart;
 		ndSharedPtr<ndBody> m_pole;
-		ndSharedPtr<ndJointBilateralConstraint> m_slider;
+		ndSharedPtr<ndBody> m_ball;
+		ndSharedPtr<ndBody> m_topBox;
+		ndSharedPtr<ndJointBilateralConstraint> m_plane;
 		ndSharedPtr<ndJointBilateralConstraint> m_poleHinge;
+		ndSharedPtr<ndJointBilateralConstraint> m_ballRoler;
 		ndSharedPtr<ndBrainAgent> m_agent;
 		ndFloat32 m_timestep;
 	};
