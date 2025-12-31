@@ -33,22 +33,22 @@ namespace ndUnicycleTrainer_ppo
 		}
 	};
 
-	class CartPoleMaterial : public ndApplicationMaterial
+	class TrainMaterial : public ndApplicationMaterial
 	{
 		public:
-		CartPoleMaterial()
+		TrainMaterial()
 			:ndApplicationMaterial()
 		{
 		}
 
-		CartPoleMaterial(const CartPoleMaterial& src)
+		TrainMaterial(const TrainMaterial& src)
 			:ndApplicationMaterial(src)
 		{
 		}
 
 		ndApplicationMaterial* Clone() const
 		{
-			return new CartPoleMaterial(*this);
+			return new TrainMaterial(*this);
 		}
 
 		virtual bool OnAabbOverlap(const ndBodyKinematic* const, const ndBodyKinematic* const) const override
@@ -280,10 +280,10 @@ void ndUnicyclePpoTraining(ndDemoEntityManager* const scene)
 
 	ndMatrix matrix(ndGetIdentityMatrix());
 	ndRenderMeshLoader loader(*scene->GetRenderer());
-	loader.LoadMesh(ndGetWorkingFileName("cartpole.nd"));
+	loader.LoadMesh(ndGetWorkingFileName("unicycle.nd"));
 
 	// create a material that make the objects in training not collsionnle
-	CartPoleMaterial material;
+	TrainMaterial material;
 	ndContactCallback* const callback = (ndContactCallback*)scene->GetWorld()->GetContactNotify();
 	callback->RegisterMaterial(material, ndDemoContactCallback::m_modelPart, ndDemoContactCallback::m_modelPart);
 
