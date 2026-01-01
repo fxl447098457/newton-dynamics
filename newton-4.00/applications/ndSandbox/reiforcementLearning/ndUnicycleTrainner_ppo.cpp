@@ -296,7 +296,7 @@ void ndUnicyclePpoTraining(ndDemoEntityManager* const scene)
 	ndSharedPtr<ndDemoEntityManager::OnPostUpdate>trainer(new TrainingUpdata(scene, matrix, loader));
 	scene->RegisterPostUpdate(trainer);
 
-	// supress v sync refresh rate for fast tranning
+	// suppress v sync refresh rate for fast training
 	scene->SetAcceleratedUpdate();
 	
 	matrix.m_posit.m_x -= 0.0f;

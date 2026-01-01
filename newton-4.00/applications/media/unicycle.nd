@@ -26,7 +26,7 @@
             <specular float3="0.9 0.9 0.9" />
             <reflection float3="1 1 1" />
             <opacity float="1" />
-            <shiness float="2" />
+            <shiness float="294.067" />
             <texture string="wood_0.png" />
         </material>
         <faces>
@@ -96,7 +96,7 @@
                     <specular float3="0.9 0.9 0.9" />
                     <reflection float3="1 1 1" />
                     <opacity float="1" />
-                    <shiness float="2" />
+                    <shiness float="222.861" />
                     <texture string="earthmap.png" />
                 </material>
                 <faces>
