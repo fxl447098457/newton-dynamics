@@ -86,8 +86,8 @@ namespace ndUnicyclePlayer
 		const ndMatrix poleMatrix(m_poleHinge->GetLocalMatrix0().OrthoInverse() * m_poleHinge->CalculateGlobalMatrix1());
 		m_pole->SetMatrix(poleMatrix);
 
-		const ndMatrix ballMatrix(m_ballRoller->GetLocalMatrix0().OrthoInverse() * m_ballRoller->CalculateGlobalMatrix1());
-		m_ball->SetMatrix(ballMatrix);
+		const ndMatrix ballMatrix(m_wheelRoller->GetLocalMatrix0().OrthoInverse() * m_wheelRoller->CalculateGlobalMatrix1());
+		m_wheel->SetMatrix(ballMatrix);
 		
 		m_pole->SetOmega(ndVector::m_zero);
 		m_pole->SetVelocity(ndVector::m_zero);
@@ -95,8 +95,8 @@ namespace ndUnicyclePlayer
 		m_topBox->SetOmega(ndVector::m_zero);
 		m_topBox->SetVelocity(ndVector::m_zero);
 
-		m_ball->SetOmega(ndVector::m_zero);
-		m_ball->SetVelocity(ndVector::m_zero);
+		m_wheel->SetOmega(ndVector::m_zero);
+		m_wheel->SetVelocity(ndVector::m_zero);
 
 		GetModel()->GetAsModelArticulation()->ClearMemory();
 	}
@@ -133,31 +133,36 @@ namespace ndUnicyclePlayer
 			return ndBrainFloat(-1.0f);
 		}
 
-		ndFloat32 angle = GetPoleAngle();
-		ndFloat32 veloc = GetPoleOmega();
+		ndFloat32 poleAngle = GetPoleAngle();
+		ndFloat32 poleVeloc = GetPoleOmega();
+		ndFloat32 wheelOmega = ((ndJointRoller*)*m_wheelRoller)->GetOmega();
 
-		ndFloat32 reward0 = ndExp(-50.0f * angle * angle);
-		ndFloat32 reward1 = ndExp(-50.0f * veloc * veloc);
-		return ndBrainFloat(ndFloat32(0.5f) * reward0 + ndFloat32(0.5f) * reward1);
+		ndFloat32 reward0 = ndExp(-50.0f * poleAngle * poleAngle);
+		ndFloat32 reward1 = ndExp(-50.0f * poleVeloc * poleVeloc);
+		ndFloat32 reward2 = ndExp(-50.0f * wheelOmega * wheelOmega);
+		return ndBrainFloat(
+				ndFloat32(1.0 / 3.0f) * reward0 + 
+				ndFloat32(1.0 / 3.0f) * reward1 +
+				ndFloat32(1.0 / 3.0f) * reward2);
 	}
 
 	void ndController::ApplyActions(ndBrainFloat* const actions)
 	{
-		const ndVector wheelMass(m_ball->GetAsBodyDynamic()->GetMassMatrix());
-		const ndMatrix wheelMatrix(m_ballRoller->CalculateGlobalMatrix0());
+		const ndVector wheelMass(m_wheel->GetAsBodyDynamic()->GetMassMatrix());
+		const ndMatrix wheelMatrix(m_wheelRoller->CalculateGlobalMatrix0());
 
-		ndFloat32 speed = ((ndJointRoller*)*m_ballRoller)->GetOmega();
+		ndFloat32 speed = ((ndJointRoller*)*m_wheelRoller)->GetOmega();
 		ndFloat32 drag = ndFloat32(0.25f) * speed * speed * ndSign(speed);
 		ndFloat32 wheelTorque = wheelMass.m_z * actions[m_wheelTorque] * ND_MAX_WHEEL_ALPHA;
 
 		//ndExpandTraceMessage("%g %g %g\n", speed, drag, wheelTorque);
 		ndVector torque(wheelMatrix.m_front.Scale(wheelTorque - drag));
-		m_ball->GetAsBodyDynamic()->SetTorque(torque);
+		m_wheel->GetAsBodyDynamic()->SetTorque(torque);
 	}
 
 	ndBrainFloat ndController::IsOnAir() const
 	{
-		ndBodyKinematic::ndContactMap& contacts = m_ball->GetAsBodyKinematic()->GetContactMap();
+		ndBodyKinematic::ndContactMap& contacts = m_wheel->GetAsBodyKinematic()->GetContactMap();
 		ndBodyKinematic::ndContactMap::Iterator it(contacts);
 		for (it.Begin(); it; it++)
 		{
@@ -175,8 +180,8 @@ namespace ndUnicyclePlayer
 	{
 		ndFloat32 poleJointOmega = ((ndJointHinge*)*m_poleHinge)->GetOmega();
 		ndFloat32 poleJointAngle = ((ndJointHinge*)*m_poleHinge)->GetAngle() / ND_MAX_LEG_JOINT_ANGLE;
-		ndFloat32 wheelOmega = ((ndJointRoller*)*m_ballRoller)->GetOmega() / ndFloat32(20.0f);
-		ndFloat32 speed = ndClamp(m_ball->GetVelocity().m_x, ndFloat32(-6.0f), ndFloat32(6.0f)) / ndFloat32 (6.0f);
+		ndFloat32 wheelOmega = ((ndJointRoller*)*m_wheelRoller)->GetOmega() / ndFloat32(20.0f);
+		ndFloat32 speed = ndClamp(m_wheel->GetVelocity().m_x, ndFloat32(-6.0f), ndFloat32(6.0f)) / ndFloat32 (6.0f);
 
 		ndFloat32 poleOmega = GetPoleOmega();
 		ndFloat32 poleAngle = GetPoleAngle() / ND_MAX_LEG_JOINT_ANGLE;
@@ -220,17 +225,17 @@ namespace ndUnicyclePlayer
 		// add ball mesh and body
 		ndSharedPtr<ndMesh> ballMesh(poleMesh->GetChildren().GetFirst()->GetInfo());
 		ndSharedPtr<ndRenderSceneNode> ballEntity(poleEntity->GetChildren().GetFirst()->GetInfo());
-		m_ball = ndSharedPtr<ndBody>(CreateRigidBody(ballMesh, ballEntity, BALL_MASS, m_pole->GetAsBodyDynamic()));
+		m_wheel = ndSharedPtr<ndBody>(CreateRigidBody(ballMesh, ballEntity, BALL_MASS, m_pole->GetAsBodyDynamic()));
 
 		// add links
 		const ndMatrix poleMatrix(m_pole->GetMatrix());
 		m_poleHinge = ndSharedPtr<ndJointBilateralConstraint>(new ndJointHinge(poleMatrix, m_pole->GetAsBodyKinematic(), m_topBox->GetAsBodyKinematic()));
 		ndModelArticulation::ndNode* const poleNode = model->AddLimb(modelRootNode, m_pole, m_poleHinge);
 
-		const ndMatrix ballMatrix(m_ball->GetMatrix());
-		m_ballRoller = ndSharedPtr<ndJointBilateralConstraint>(new ndJointRoller(ballMatrix, m_ball->GetAsBodyKinematic(), m_pole->GetAsBodyKinematic()));
-		((ndJointRoller*)*m_ballRoller)->SetAsSpringDamperPosit(0.01f, 1000.0f, 15.0f);
-		model->AddLimb(poleNode, m_ball, m_ballRoller);
+		const ndMatrix ballMatrix(m_wheel->GetMatrix());
+		m_wheelRoller = ndSharedPtr<ndJointBilateralConstraint>(new ndJointRoller(ballMatrix, m_wheel->GetAsBodyKinematic(), m_pole->GetAsBodyKinematic()));
+		((ndJointRoller*)*m_wheelRoller)->SetAsSpringDamperPosit(0.01f, 1000.0f, 15.0f);
+		model->AddLimb(poleNode, m_wheel, m_wheelRoller);
 
 		// fix to the word with a plane joint
 		ndWorld* const world = scene->GetWorld();

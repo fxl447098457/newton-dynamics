@@ -109,11 +109,11 @@ namespace ndUnicyclePlayer
 		static ndModelArticulation* CreateModel(ndDemoEntityManager* const scene, const ndMatrix& location, const ndRenderMeshLoader& loader, const char* const name);
 
 		ndSharedPtr<ndBody> m_pole;
-		ndSharedPtr<ndBody> m_ball;
+		ndSharedPtr<ndBody> m_wheel;
 		ndSharedPtr<ndBody> m_topBox;
 		ndSharedPtr<ndJointBilateralConstraint> m_plane;
 		ndSharedPtr<ndJointBilateralConstraint> m_poleHinge;
-		ndSharedPtr<ndJointBilateralConstraint> m_ballRoller;
+		ndSharedPtr<ndJointBilateralConstraint> m_wheelRoller;
 		ndSharedPtr<ndBrainAgent> m_agent;
 		ndFloat32 m_timestep;
 	};
