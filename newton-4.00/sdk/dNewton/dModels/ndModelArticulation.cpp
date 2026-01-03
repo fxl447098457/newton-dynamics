@@ -643,6 +643,7 @@ void ndModelArticulation::CalculateCentreOfMass(ndCenterOfMassDynamics& dynamics
 	}
 }
 
+//#pragma optimize( "", off )
 ndModelArticulation::ndCenterOfMassDynamics ndModelArticulation::CalculateCentreOfMassDynamics(ndIkSolver& solver, const ndMatrix& localFrame, ndFixSizeArray<ndJointBilateralConstraint*, 128>& extraJoints, ndFloat32 timestep) const
 {
 	ndCenterOfMassDynamics dynamics;
@@ -726,7 +727,6 @@ ndModelArticulation::ndCenterOfMassDynamics ndModelArticulation::CalculateCentre
 	return dynamics;
 }
 
-//#pragma optimize( "", off )
 ndModelArticulation::ndCenterOfMassDynamics ndModelArticulation::CalculateCentreOfMassDynamics(const ndMatrix& localFrame, ndFloat32 timestep) const
 {
 	//ndCenterOfMassDynamics dynamics;
