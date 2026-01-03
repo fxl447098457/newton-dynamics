@@ -728,7 +728,6 @@ ndModelArticulation::ndCenterOfMassDynamics ndModelArticulation::CalculateCentre
 	return dynamics;
 }
 
-
 ndModelArticulation::ndCenterOfMassDynamics ndModelArticulation::CalculateCentreOfMassKinematics(const ndMatrix& localFrame) const
 {
 	ndCenterOfMassDynamics dynamics;
