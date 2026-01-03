@@ -96,6 +96,8 @@ namespace ndUnicyclePlayer
 		bool IsTerminal() const;
 		ndFloat32 GetPoleAngle() const;
 		ndFloat32 GetPoleOmega() const;
+		ndFloat32 GetBoxAngle() const;
+		ndFloat32 GetBoxOmega() const;
 		ndBrainFloat CalculateReward() const;
 		void ApplyActions(ndBrainFloat* const actions);
 		void GetObservation(ndBrainFloat* const observation);

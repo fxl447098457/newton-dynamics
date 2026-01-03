@@ -117,6 +117,23 @@ namespace ndUnicyclePlayer
 		return omega.DotProduct(matrix.m_front).GetScalar();
 	}
 
+	ndFloat32 ndController::GetBoxAngle() const
+	{
+		const ndJointHinge* const hinge = (ndJointHinge*)*m_poleHinge;
+		//const ndMatrix matrix(hinge->CalculateGlobalMatrix0());
+		const ndMatrix matrix(hinge->CalculateGlobalMatrix1());
+		ndFloat32 angle = ndAcos(-ndClamp(matrix.m_up.m_y, ndFloat32(-1.0f), ndFloat32(1.0f)));
+		return angle;
+	}
+
+	ndFloat32 ndController::GetBoxOmega() const
+	{
+		const ndJointHinge* const hinge = (ndJointHinge*)*m_poleHinge;
+		const ndMatrix matrix(hinge->CalculateGlobalMatrix0());
+		const ndVector omega(m_topBox->GetOmega());
+		return omega.DotProduct(matrix.m_front).GetScalar();
+	}
+
 	bool ndController::IsTerminal() const
 	{
 		ndFloat32 angle = GetPoleAngle();
@@ -134,16 +151,28 @@ namespace ndUnicyclePlayer
 		}
 
 		ndFloat32 poleAngle = GetPoleAngle();
-		ndFloat32 poleVeloc = GetPoleOmega();
-		ndFloat32 wheelOmega = ((ndJointRoller*)*m_wheelRoller)->GetOmega();
+		ndFloat32 poleOmega = GetPoleOmega();
+		ndVector veloc(m_topBox->GetVelocity());
 
-		ndFloat32 reward0 = ndExp(-50.0f * poleAngle * poleAngle);
-		ndFloat32 reward1 = ndExp(-50.0f * poleVeloc * poleVeloc);
-		ndFloat32 reward2 = ndExp(-50.0f * wheelOmega * wheelOmega);
+		//ndFloat32 boxAngle = GetBoxAngle();
+		//ndFloat32 boxOmega = GetBoxOmega();
+		//ndFloat32 wheelOmega = ((ndJointRoller*)*m_wheelRoller)->GetOmega();
+		
+		ndFloat32 speedReward = ndExp(-100.0f * veloc.m_x * veloc.m_x);
+		ndFloat32 poleAngleReward = ndExp(-500.0f * poleAngle * poleAngle);
+		ndFloat32 poleOmegaReward = ndExp(-100.0f * poleOmega * poleOmega);
+
+		if (IsOnAir())
+		{
+			poleAngleReward = 0.0f;
+			poleOmegaReward = 0.0f;
+		}
+		//ndTrace(("%f %f %f\n", poleAngleReward, poleOmegaReward, speedReward));
+
 		return ndBrainFloat(
-				ndFloat32(1.0 / 3.0f) * reward0 + 
-				ndFloat32(1.0 / 3.0f) * reward1 +
-				ndFloat32(1.0 / 3.0f) * reward2);
+				ndFloat32(1.0 / 4.0f) * poleAngleReward +
+				ndFloat32(1.0 / 4.0f) * poleOmegaReward +
+				ndFloat32(1.0 / 2.0f) * speedReward);
 	}
 
 	void ndController::ApplyActions(ndBrainFloat* const actions)
