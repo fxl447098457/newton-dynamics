@@ -97,8 +97,8 @@ class ndModelArticulation: public ndModel
 
 	D_NEWTON_API void ClearMemory();
 	D_NEWTON_API void SetTransform(const ndMatrix& matrix);
-	D_NEWTON_API ndCenterOfMassDynamics CalculateCentreOfMassKinematics(const ndMatrix& localFrame) const;
-	D_NEWTON_API ndCenterOfMassDynamics CalculateCentreOfMassDynamics(ndIkSolver& solver, const ndMatrix& localFrame, ndFixSizeArray<ndJointBilateralConstraint*, 64>& extraJoints, ndFloat32 timestep) const;
+	D_NEWTON_API ndCenterOfMassDynamics CalculateCentreOfMassDynamics(const ndMatrix& localFrame, ndFloat32 timestep) const;
+	D_NEWTON_API ndCenterOfMassDynamics CalculateCentreOfMassDynamics(ndIkSolver& solver, const ndMatrix& localFrame, ndFixSizeArray<ndJointBilateralConstraint*, 128>& extraJoints, ndFloat32 timestep) const;
 	
 	protected:
 	D_NEWTON_API void ConvertToUrdf();

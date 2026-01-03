@@ -694,7 +694,9 @@ void ndMultiBodyVehicle::Debug(ndConstraintDebugCallback& context) const
 	const ndMatrix chassisMatrix(chassis->GetMatrix());
 
 	// draw center of mass;
-	const ndCenterOfMassDynamics kinematics (CalculateCentreOfMassKinematics(chassisMatrix));
+	ndAssert(0);
+	ndFloat32 timestep = 1.0f / 128.0f;
+	const ndCenterOfMassDynamics kinematics (CalculateCentreOfMassDynamics(chassisMatrix, timestep));
 	context.DrawFrame(kinematics.m_centerOfMass);
 
 	// draw vehicle velocity

@@ -643,7 +643,7 @@ void ndModelArticulation::CalculateCentreOfMass(ndCenterOfMassDynamics& dynamics
 	}
 }
 
-ndModelArticulation::ndCenterOfMassDynamics ndModelArticulation::CalculateCentreOfMassDynamics(ndIkSolver& solver, const ndMatrix& localFrame, ndFixSizeArray<ndJointBilateralConstraint*, 64>& extraJoints, ndFloat32 timestep) const
+ndModelArticulation::ndCenterOfMassDynamics ndModelArticulation::CalculateCentreOfMassDynamics(ndIkSolver& solver, const ndMatrix& localFrame, ndFixSizeArray<ndJointBilateralConstraint*, 128>& extraJoints, ndFloat32 timestep) const
 {
 	ndCenterOfMassDynamics dynamics;
 	if (!m_rootNode)
@@ -727,81 +727,81 @@ ndModelArticulation::ndCenterOfMassDynamics ndModelArticulation::CalculateCentre
 }
 
 //#pragma optimize( "", off )
-ndModelArticulation::ndCenterOfMassDynamics ndModelArticulation::CalculateCentreOfMassKinematics(const ndMatrix& localFrame) const
+ndModelArticulation::ndCenterOfMassDynamics ndModelArticulation::CalculateCentreOfMassDynamics(const ndMatrix& localFrame, ndFloat32 timestep) const
 {
-//ndIkSolver solver;
-//ndFixSizeArray<ndJointBilateralConstraint*, 64> extraJoint;
-//const ndCenterOfMassDynamics xxx(CalculateCentreOfMassDynamics(solver, localFrame, extraJoint, 1.0f/120.0f));
+	//ndCenterOfMassDynamics dynamics;
+	//if (!m_rootNode)
+	//{
+	//	return dynamics;
+	//}
+	//
+	//ndBodyKinematic* const rootBody = GetRoot()->m_body->GetAsBodyKinematic();
+	//ndSkeletonContainer* const skeleton = rootBody->GetSkeleton();
+	//if (!skeleton)
+	//{
+	//	return dynamics;
+	//}
+	//
+	//ndFixSizeArray<ndVector, 256> bodyCenter;
+	//ndFixSizeArray<const ndBodyKinematic*, 256> bodyArray;
+	//CalculateCentreOfMass(dynamics, bodyArray, bodyCenter);
+	//
+	//auto CalculateCenterOfMassDynamics = [&dynamics, &bodyArray, &bodyCenter]()
+	//{
+	//	for (ndInt32 i = bodyArray.GetCount() - 1; i >= 0; --i)
+	//	{
+	//		const ndBodyKinematic* const body = bodyArray[i];
+	//		ndFloat32 mass = body->GetMassMatrix().m_w;
+	//
+	//		ndMatrix bodyInertia(body->CalculateInertiaMatrix());
+	//		const ndVector angularMomnetum(bodyInertia.RotateVector(body->GetAlpha()));
+	//		dynamics.m_momentum += body->GetVelocity().Scale(mass);
+	//		dynamics.m_angularMomentum += angularMomnetum;
+	//		dynamics.m_angularMomentum += bodyCenter[i].CrossProduct(body->GetVelocity().Scale(mass));
+	//
+	//		const ndVector extForce(body->GetAccel().Scale(mass));
+	//		const ndVector extForceTorque(bodyCenter[i].CrossProduct(extForce));
+	//		const ndVector extTorque(bodyInertia.RotateVector(body->GetAlpha()));
+	//		const ndVector gyroTorque(body->GetOmega().CrossProduct(angularMomnetum));
+	//
+	//		dynamics.m_force += extForce;
+	//		dynamics.m_torque += extTorque;
+	//		dynamics.m_torque += gyroTorque;
+	//		dynamics.m_torque += extForceTorque;
+	//
+	//		ndFloat32 mag2 = bodyCenter[i].DotProduct(bodyCenter[i]).GetScalar();
+	//		ndMatrix covariance(ndCovarianceMatrix(bodyCenter[i], bodyCenter[i]));
+	//		for (ndInt32 j = 0; j < 3; j++)
+	//		{
+	//			bodyInertia[j][j] += mass * mag2;
+	//			bodyInertia[j] -= covariance[j].Scale(mass);
+	//			dynamics.m_inertiaMatrix[j] += bodyInertia[j];
+	//		}
+	//	}
+	//	dynamics.m_inertiaMatrix.m_posit.m_w = ndFloat32(1.0f);
+	//};
+	//CalculateCenterOfMassDynamics();
+	//
+	//dynamics.m_force = localFrame.UnrotateVector(dynamics.m_force);
+	//dynamics.m_torque = localFrame.UnrotateVector(dynamics.m_torque);
+	//dynamics.m_momentum = localFrame.UnrotateVector(dynamics.m_momentum);
+	//dynamics.m_angularMomentum = localFrame.UnrotateVector(dynamics.m_angularMomentum);
+	//dynamics.m_inertiaMatrix = localFrame * dynamics.m_inertiaMatrix * localFrame.OrthoInverse();
+	//dynamics.m_inertiaMatrix.m_posit = ndVector::m_wOne;
+	//
+	//const ndMatrix invInertia(dynamics.m_inertiaMatrix.Inverse4x4());
+	//dynamics.m_omega = invInertia.RotateVector(dynamics.m_angularMomentum);
+	//dynamics.m_veloc = dynamics.m_momentum.Scale(ndFloat32(1.0f) / dynamics.m_mass);
+	//dynamics.m_alpha = invInertia.RotateVector(dynamics.m_torque);
+	//dynamics.m_accel = dynamics.m_force.Scale(ndFloat32(1.0f) / dynamics.m_mass);
+	//
+	//dynamics.m_centerOfMass.m_front = localFrame.m_front;
+	//dynamics.m_centerOfMass.m_up = localFrame.m_up;
+	//dynamics.m_centerOfMass.m_right = localFrame.m_right;
+	//
+	//return dynamics;
 
-	ndCenterOfMassDynamics dynamics;
-	if (!m_rootNode)
-	{
-		return dynamics;
-	}
-
-	ndBodyKinematic* const rootBody = GetRoot()->m_body->GetAsBodyKinematic();
-	ndSkeletonContainer* const skeleton = rootBody->GetSkeleton();
-	if (!skeleton)
-	{
-		return dynamics;
-	}
-
-	ndFixSizeArray<ndVector, 256> bodyCenter;
-	ndFixSizeArray<const ndBodyKinematic*, 256> bodyArray;
-	CalculateCentreOfMass(dynamics, bodyArray, bodyCenter);
-
-	auto CalculateCenterOfMassDynamics = [&dynamics, &bodyArray, &bodyCenter]()
-	{
-		for (ndInt32 i = bodyArray.GetCount() - 1; i >= 0; --i)
-		{
-			const ndBodyKinematic* const body = bodyArray[i];
-			ndFloat32 mass = body->GetMassMatrix().m_w;
-
-			ndMatrix bodyInertia(body->CalculateInertiaMatrix());
-			const ndVector angularMomnetum(bodyInertia.RotateVector(body->GetAlpha()));
-			dynamics.m_momentum += body->GetVelocity().Scale(mass);
-			dynamics.m_angularMomentum += angularMomnetum;
-			dynamics.m_angularMomentum += bodyCenter[i].CrossProduct(body->GetVelocity().Scale(mass));
-
-			const ndVector extForce(body->GetAccel().Scale(mass));
-			const ndVector extForceTorque(bodyCenter[i].CrossProduct(extForce));
-			const ndVector extTorque(bodyInertia.RotateVector(body->GetAlpha()));
-			const ndVector gyroTorque(body->GetOmega().CrossProduct(angularMomnetum));
-
-			dynamics.m_force += extForce;
-			dynamics.m_torque += extTorque;
-			dynamics.m_torque += gyroTorque;
-			dynamics.m_torque += extForceTorque;
-
-			ndFloat32 mag2 = bodyCenter[i].DotProduct(bodyCenter[i]).GetScalar();
-			ndMatrix covariance(ndCovarianceMatrix(bodyCenter[i], bodyCenter[i]));
-			for (ndInt32 j = 0; j < 3; j++)
-			{
-				bodyInertia[j][j] += mass * mag2;
-				bodyInertia[j] -= covariance[j].Scale(mass);
-				dynamics.m_inertiaMatrix[j] += bodyInertia[j];
-			}
-		}
-		dynamics.m_inertiaMatrix.m_posit.m_w = ndFloat32(1.0f);
-	};
-	CalculateCenterOfMassDynamics();
-
-	dynamics.m_force = localFrame.UnrotateVector(dynamics.m_force);
-	dynamics.m_torque = localFrame.UnrotateVector(dynamics.m_torque);
-	dynamics.m_momentum = localFrame.UnrotateVector(dynamics.m_momentum);
-	dynamics.m_angularMomentum = localFrame.UnrotateVector(dynamics.m_angularMomentum);
-	dynamics.m_inertiaMatrix = localFrame * dynamics.m_inertiaMatrix * localFrame.OrthoInverse();
-	dynamics.m_inertiaMatrix.m_posit = ndVector::m_wOne;
-
-	const ndMatrix invInertia(dynamics.m_inertiaMatrix.Inverse4x4());
-	dynamics.m_omega = invInertia.RotateVector(dynamics.m_angularMomentum);
-	dynamics.m_veloc = dynamics.m_momentum.Scale(ndFloat32(1.0f) / dynamics.m_mass);
-	dynamics.m_alpha = invInertia.RotateVector(dynamics.m_torque);
-	dynamics.m_accel = dynamics.m_force.Scale(ndFloat32(1.0f) / dynamics.m_mass);
-
-	dynamics.m_centerOfMass.m_front = localFrame.m_front;
-	dynamics.m_centerOfMass.m_up = localFrame.m_up;
-	dynamics.m_centerOfMass.m_right = localFrame.m_right;
-
-	return dynamics;
+	ndIkSolver solver;
+	ndFixSizeArray<ndJointBilateralConstraint*, 128> extraJoint;
+	return CalculateCentreOfMassDynamics(solver, localFrame, extraJoint, timestep);
 }

@@ -152,10 +152,8 @@ namespace ndUnicyclePlayer
 		}
 
 #if 1
-		//ndIkSolver solver;
-		//ndFixSizeArray<ndJointBilateralConstraint*, 64> extraJoint;
 		const ndMatrix comFrame(ndGetIdentityMatrix());
-		const ndModelArticulation::ndCenterOfMassDynamics comDynamics(GetModel()->GetAsModelArticulation()->CalculateCentreOfMassKinematics(comFrame));
+		const ndModelArticulation::ndCenterOfMassDynamics comDynamics(GetModel()->GetAsModelArticulation()->CalculateCentreOfMassDynamics(comFrame, m_timestep));
 
 		const ndVector comOmega(comDynamics.m_omega);
 		const ndVector comAlpha(comDynamics.m_alpha);
