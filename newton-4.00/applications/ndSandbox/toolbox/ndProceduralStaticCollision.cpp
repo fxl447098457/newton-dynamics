@@ -36,10 +36,33 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 	public:
 	D_CLASS_REFLECTION(ndProceduralTerrainShape, ndShapeStaticProceduralMesh)
 
+		class ndTriangle
+	{
+		public:
+		ndInt32 m_i0;
+		ndInt32 m_i1;
+		ndInt32 m_i2;
+		ndInt32 m_material;
+		ndInt32 m_normal;
+		ndInt32 m_normal_edge01;
+		ndInt32 m_normal_edge12;
+		ndInt32 m_normal_edge20;
+		ndInt32 m_area;
+	};
+
+	class ndGridQuad
+	{
+		public:
+		ndTriangle m_triangle0;
+		ndTriangle m_triangle1;
+	};
+
 	ndProceduralTerrainShape()
 		:ndShapeStaticProceduralMesh()
 	{
 		MakeNoiseHeightfield();
+
+		m_padding = ndVector(0.1f) & ndVector::m_triplexMask;
 
 		ndFloat32 minY = 1.0e20f;
 		ndFloat32 maxY = -1.0e20f;
@@ -52,14 +75,24 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 		ndVector p0(ndFloat32 (0.0f), minY, ndFloat32(0.0f), ndFloat32(1.0f));
 		ndVector p1(ndFloat32(D_TERRAIN_WIDTH * D_TERRAIN_GRID_SIZE), maxY, ndFloat32(D_TERRAIN_WIDTH * D_TERRAIN_GRID_SIZE), ndFloat32(1.0f));
 		SetAABB(p0, p1);
+
+		// to account for rounding
+		CalculateAabb(ndGetIdentityMatrix(), m_minBox, m_maxBox);
+	}
+
+	//virtual ndUnsigned64 GetHash(ndUnsigned64 hash) const override
+	virtual ndUnsigned64 GetHash(ndUnsigned64) const override
+	{
+		// return a unique hash code for thies shape
+		return 0x1234567;
 	}
 
 	void MakeNoiseHeightfield()
 	{
+		m_material.SetCount(D_TERRAIN_WIDTH * D_TERRAIN_HEIGHT);
 		m_heightfield.SetCount(D_TERRAIN_WIDTH * D_TERRAIN_HEIGHT);
 
 		const ndInt32 octaves = D_TERRAIN_NOISE_OCTAVES;
-		//const ndFloat32 cellSize = D_TERRAIN_GRID_SIZE;
 		const ndFloat32 persistance = D_TERRAIN_NOISE_PERSISTANCE;
 		const ndFloat32 noiseGridScale = D_TERRAIN_NOISE_GRID_SCALE;
 
@@ -73,6 +106,10 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 				m_heightfield[z * D_TERRAIN_WIDTH + x] = noiseVal;
 				minHeight = ndMin(minHeight, noiseVal);
 				maxHight = ndMax(maxHight, noiseVal);
+
+				// that app should populate this with app matrials.
+				// just make a zero material index,
+				m_material[z * D_TERRAIN_WIDTH + x] = 0;
 			}
 		}
 
@@ -85,119 +122,303 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 		}
 	}
 
-	//virtual void DebugShape(const ndMatrix&, ndShapeDebugNotify& notify) const override
-	virtual void DebugShape(const ndMatrix&, ndShapeDebugNotify&) const override
+	virtual void DebugShape(const ndMatrix& matrix, ndShapeDebugNotify& notify) const override
 	{
-		//ndDebugNotify& debugDraw = (ndDebugNotify&)notify;
-		//ndBodyKinematic* const body = debugDraw.m_body;
-		//
-		//// this demo will iterate over the all the body contact pairs drawing the face in aabb.
-		//ndArray<ndVector> vertex;
-		//ndArray<ndInt32> faceList;
-		//ndArray<ndInt32> faceMaterial;
-		//ndArray<ndInt32> indexListList;
-		//
-		//ndMatrix myMatrix(body->GetMatrix());
-		//ndBodyKinematic::ndContactMap& contactJoints = body->GetContactMap();
-		//ndBodyKinematic::ndContactMap::Iterator it(contactJoints);
-		//for (it.Begin(); it; it++)
-		//{
-		//	const ndContact* const contact = it.GetNode()->GetInfo();
-		//	if (contact->IsActive())
-		//	{
-		//		ndBodyKinematic* const body0 = contact->GetBody0();
-		//		ndShapeInstance& collision = body0->GetCollisionShape();
-		//
-		//		ndVector minP;
-		//		ndVector maxP;
-		//		ndMatrix matrix(body0->GetMatrix());
-		//		//collision.CalculateAabb(matrix.Inverse(), minP, maxP);
-		//		collision.CalculateAabb(matrix * myMatrix.OrthoInverse(), minP, maxP);
-		//
-		//		vertex.SetCount(0);
-		//		faceList.SetCount(0);
-		//		faceMaterial.SetCount(0);
-		//		indexListList.SetCount(0);
-		//		GetCollidingFaces(minP, maxP, vertex, faceList, faceMaterial, indexListList);
-		//
-		//		ndInt32 index = 0;
-		//		ndVector color(50.0f / 255.0f, 100.0f / 255.0f, 200.0f / 255.0f, 1.0f);
-		//
-		//		for (ndInt32 i = 0; i < faceList.GetCount(); ++i)
-		//		{
-		//			ndVector points[32];
-		//			ndInt32 vCount = faceList[i];
-		//			for (ndInt32 j = 0; j < vCount; ++j)
-		//			{
-		//				ndInt32 k = indexListList[index + j];
-		//				points[j] = myMatrix.TransformVector(vertex[k]);
-		//			}
-		//
-		//			// I do not know why this is not rendering
-		//			//RenderPolygon(debugDraw.m_manager, points, vCount, color);
-		//			index += vCount;
-		//		}
-		//	}
-		//}
+		ndShapeDebugNotify::ndEdgeType edgeType = ndShapeDebugNotify::m_shared;
+		for (ndInt32 z = 0; z < D_TERRAIN_HEIGHT - 1; z++)
+		{
+			const ndReal* const row = &m_heightfield[z * D_TERRAIN_WIDTH];
+			ndVector p0(ndFloat32(0.0f), ndFloat32(row[0]), ndFloat32(z) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f));
+			ndVector p1(ndFloat32(0.0f), ndFloat32(row[D_TERRAIN_WIDTH]), ndFloat32(z + 1) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f));
+			p0 = matrix.TransformVector(p0);
+			p1 = matrix.TransformVector(p1);
+
+			for (ndInt32 x = 0; x < D_TERRAIN_WIDTH - 1; x++)
+			{
+				const ndVector q0(matrix.TransformVector(ndVector(ndFloat32(x + 1) * D_TERRAIN_GRID_SIZE, ndFloat32(row[x]), ndFloat32(z) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f))));
+				const ndVector q1(matrix.TransformVector(ndVector(ndFloat32(x + 1) * D_TERRAIN_GRID_SIZE, ndFloat32(row[x + D_TERRAIN_WIDTH]), ndFloat32(z + 1) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f))));
+
+				ndVector triangle[3];
+				triangle[0] = p0;
+				triangle[1] = p1;
+				triangle[2] = q0;
+				notify.DrawPolygon(3, triangle, &edgeType);
+
+				triangle[0] = p1;
+				triangle[1] = q1;
+				triangle[2] = q0;
+				notify.DrawPolygon(3, triangle, &edgeType);
+
+				p0 = q0;
+				p1 = q1;
+			}
+		}
 	}
 
-	virtual ndFloat32 RayCast(ndRayCastNotify&, const ndVector& localP0, const ndVector& localP1, ndFloat32, const ndBody* const, ndContactPoint& contactOut) const override
+	//virtual ndFloat32 RayCast(ndRayCastNotify&, const ndVector& localP0, const ndVector& localP1, ndFloat32, const ndBody* const, ndContactPoint& contactOut) const override
+	virtual ndFloat32 RayCast(ndRayCastNotify&, const ndVector&, const ndVector&, ndFloat32, const ndBody* const, ndContactPoint&) const override
 	{
 		//ndAssert(0);
 		// TO DO 
 		return 1.0f;
 	}
 
-	virtual void GetCollidingFaces(const ndVector& minBox, const ndVector& maxBox, ndArray<ndVector>& vertex, ndArray<ndInt32>& faceList, ndArray<ndInt32>& faceMaterial, ndArray<ndInt32>& indexList) const
+	//virtual void GetCollidingFaces(const ndVector& minBox, const ndVector& maxBox, ndArray<ndVector>& vertex, ndArray<ndInt32>& faceList, ndArray<ndInt32>& faceMaterial, ndArray<ndInt32>& indexList) const
+	void GetFacesPatch(ndPolygonMeshDesc* const data) const override
 	{
-		//ndAssert(0);
-		// TO DO 
-		// generate the point cloud
-		//ndVector p0(minBox.Scale(m_invGridSize).Floor());
-		//ndVector p1(maxBox.Scale(m_invGridSize).Floor() + ndVector::m_one);
-		//ndVector origin(p0.Scale(m_gridSize) & ndVector::m_triplexMask);
-		//ndInt32 count_x = ndInt32(p1.m_x - p0.m_x);
-		//ndInt32 count_z = ndInt32(p1.m_z - p0.m_z);
-		
-		//origin.m_y = 0.0f;
-		//for (ndInt32 iz = 0; iz <= count_z; iz++)
-		//{
-		//	ndVector point(origin);
-		//	for (ndInt32 ix = 0; ix <= count_x; ix++)
-		//	{
-		//		vertex.PushBack(point);
-		//		point.m_x += m_gridSize;
-		//	}
-		//	origin.m_z += m_gridSize;
-		//}
-		//
-		//// generate the face array
-		//const ndInt32 stride = count_x + 1;
-		//for (ndInt32 iz = 0; iz < count_z; iz++)
-		//{
-		//	for (ndInt32 ix = 0; ix < count_x; ix++)
-		//	{
-		//		faceList.PushBack(4);
-		//		indexListList.PushBack((iz + 0) * stride + ix + 0);
-		//		indexListList.PushBack((iz + 1) * stride + ix + 0);
-		//		indexListList.PushBack((iz + 1) * stride + ix + 1);
-		//		indexListList.PushBack((iz + 0) * stride + ix + 1);
-		//
-		//		faceMaterial.PushBack(0);
-		//	}
-		//}
+		// calculate box extend rounded you the padding
+		ndVector boxP0;
+		ndVector boxP1;
+		CalculateMinExtend3d(data->GetOrigin(), data->GetTarget(), boxP0, boxP1);
+
+		boxP0 += data->m_boxDistanceTravelInMeshSpace & (data->m_boxDistanceTravelInMeshSpace < ndVector::m_zero);
+		boxP1 += data->m_boxDistanceTravelInMeshSpace & (data->m_boxDistanceTravelInMeshSpace > ndVector::m_zero);
+
+		// clamp sweep box against shape bounds, and get the integet dimension
+		const ndVector p0(boxP0.GetMax(m_minBox));
+		const ndVector p1(boxP1.GetMin(m_maxBox));
+		const ndVector intP0(p0.GetInt());
+		const ndVector intP1(p1.GetInt());
+
+		const ndInt32 x0 = ndInt32(intP0.m_ix);
+		const ndInt32 x1 = ndInt32(intP1.m_ix);
+		const ndInt32 z0 = ndInt32(intP0.m_iz);
+		const ndInt32 z1 = ndInt32(intP1.m_iz);
+
+		if ((x1 == x0) || (z1 == z0))
+		{
+			data->m_staticMeshQuery->m_faceIndexCount.SetCount(0);
+			return;
+		}
+
+		ndFloat32 minHeight = ndFloat32(1.0e10f);
+		ndFloat32 maxHeight = ndFloat32(-1.0e10f);
+		data->SetSeparatingDistance(ndFloat32(0.0f));
+		CalculateMinAndMaxElevation(x0, x1, z0, z1, minHeight, maxHeight);
+
+		if ((maxHeight < boxP0.m_y) || (minHeight > boxP1.m_y))
+		{
+			// the box does not interset the highfield
+			return;
+		}
+		const ndInt32 count_x = x1 - x0;
+		const ndInt32 count_z = z1 - z0;
+		ndInt32 numberOfQuad = (x1 - x0) * (z1 - z0);
+		if (numberOfQuad == 0)
+		{
+			// box overlap but not faces are collnected
+			return;
+		}
+
+		const ndFloat32 gridSize = D_TERRAIN_GRID_SIZE;
+
+		// get the point array
+		ndVector patchOrigin(p0);
+		ndArray<ndVector>& vertex = data->m_proceduralStaticMeshFaceQuery->m_vertex;
+		vertex.SetCount(0);
+		for (ndInt32 iz = 0; iz <= count_z; iz++)
+		{
+			ndVector point(patchOrigin);
+			const ndReal* const heightfield = &m_heightfield[iz * D_TERRAIN_WIDTH];
+			for (ndInt32 ix = 0; ix <= count_x; ix++)
+			{
+				point.m_y = heightfield[ix];
+				vertex.PushBack(point);
+				point.m_x += gridSize;
+			}
+			patchOrigin.m_z += gridSize;
+		}
+
+		// get the index array:
+		// face index, facne normal, face material, face edge adjacency
+		ndPolygonMeshDesc::ndStaticMeshFaceQuery& query = *data->m_staticMeshQuery;
+		ndArray<ndInt32>& quadDataArray = query.m_faceVertexIndex;
+		ndArray<ndInt32>& faceIndexCount = query.m_faceIndexCount;
+
+		// Iterate over the quads and build mesh indices list
+		ndInt32 quadCount = 0;
+		ndInt32 vertexIndex = 0;
+		const ndInt32 faceSize = ndInt32(D_TERRAIN_GRID_SIZE * D_TERRAIN_GRID_SIZE/2.0f);
+
+		const ndInt32 step = x1 - x0 + 1;
+		ndInt32 normalBase = ndInt32 (vertex.GetCount());
+
+		// set the number of traingles, in integers, 
+		// and get the pointer to the quad array
+		quadDataArray.SetCount(2 * numberOfQuad * ndInt32(sizeof(ndGridQuad) / sizeof(ndInt32)));
+		ndGridQuad* const quadArray = (ndGridQuad*)&quadDataArray[0];
+		for (ndInt32 z = z0; z < z1; ++z)
+		{
+			ndInt32 zStep = z * D_TERRAIN_WIDTH;
+			for (ndInt32 x = x0; x < x1; ++x)
+			{
+				const ndInt32 i0 = vertexIndex;
+				const ndInt32 i1 = vertexIndex + 1;
+				const ndInt32 i2 = vertexIndex + step;
+				const ndInt32 i3 = vertexIndex + step + 1;
+				
+				const ndVector e0(vertex[i0] - vertex[i1]);
+				const ndVector e1(vertex[i2] - vertex[i1]);
+				const ndVector e2(vertex[i3] - vertex[i1]);
+				const ndVector n0(e0.CrossProduct(e1).Normalize());
+				const ndVector n1(e1.CrossProduct(e2).Normalize());
+				ndAssert(n0.m_w == ndFloat32(0.0f));
+				ndAssert(n1.m_w == ndFloat32(0.0f));
+				
+				ndAssert(n0.DotProduct(n0).GetScalar() > ndFloat32(0.0f));
+				ndAssert(n1.DotProduct(n1).GetScalar() > ndFloat32(0.0f));
+				
+				// save the triangle normals
+				vertex.PushBack(n0);
+				vertex.PushBack(n1);
+				const ndInt32 normalIndex0 = normalBase;
+				const ndInt32 normalIndex1 = normalBase + 1;
+
+				ndGridQuad& quad = quadArray[quadCount];
+				// add first quad triangle
+				faceIndexCount.PushBack(3);
+				quad.m_triangle0.m_i0 = i2;
+				quad.m_triangle0.m_i1 = i1;
+				quad.m_triangle0.m_i2 = i0;
+				quad.m_triangle0.m_material = m_material[zStep + x];
+				quad.m_triangle0.m_normal = normalIndex0;
+				quad.m_triangle0.m_normal_edge01 = normalIndex0;
+				quad.m_triangle0.m_normal_edge12 = normalIndex0;
+				quad.m_triangle0.m_normal_edge20 = normalIndex0;
+				quad.m_triangle0.m_area = faceSize;
+				
+				// add secund quad triangle
+				faceIndexCount.PushBack(3);
+				quad.m_triangle1.m_i0 = i1;
+				quad.m_triangle1.m_i1 = i2;
+				quad.m_triangle1.m_i2 = i3;
+				quad.m_triangle1.m_material = m_material[zStep + x];
+				quad.m_triangle1.m_normal = normalIndex1;
+				quad.m_triangle1.m_normal_edge01 = normalIndex1;
+				quad.m_triangle1.m_normal_edge12 = normalIndex1;
+				quad.m_triangle1.m_normal_edge20 = normalIndex1;
+				quad.m_triangle1.m_area = faceSize;
+				
+				// check that these two traengle for past of a conve cap.
+				const ndVector dp(vertex[i3] - vertex[i1]);
+				ndAssert(dp.m_w == ndFloat32(0.0f));
+				ndFloat32 dist = n0.DotProduct(dp).GetScalar();
+				if (dist < -ndFloat32(1.0e-3f))
+				{
+					quad.m_triangle0.m_normal_edge01 = normalIndex1;
+					quad.m_triangle1.m_normal_edge01 = normalIndex0;
+				}
+				normalBase += 2;
+				quadCount++;
+				vertexIndex++;
+			}
+			vertexIndex++;
+		}
+
+		// iterate over the quad array and build the 
+		// vertical edge adjancency info.
+		for (ndInt32 z = (z1 - z0) - 1; z >= 0; --z)
+		{
+			ndInt32 z_step = z * (x1 - x0);
+			for (ndInt32 x = (x1 - x0) - 1; x >= 1; --x)
+			{
+				ndInt32 quadIndex = z_step + x;
+				ndGridQuad& quad0 = quadArray[quadIndex - 1];
+				ndGridQuad& quad1 = quadArray[quadIndex - 0];
+
+				ndTriangle& triangle0 = quad0.m_triangle1;
+				ndTriangle& triangle1 = quad1.m_triangle0;
+
+				const ndVector& origin = vertex[triangle1.m_i0];
+				const ndVector& testPoint = vertex[triangle1.m_i1];
+				const ndVector& normal = vertex[triangle0.m_normal];
+				ndAssert(normal.m_w == ndFloat32(0.0f));
+				ndFloat32 dist(normal.DotProduct(testPoint - origin).GetScalar());
+				if (dist < -ndFloat32(1.0e-3f))
+				{
+					ndInt32 n0 = triangle0.m_normal;
+					ndInt32 n1 = triangle1.m_normal;
+					triangle0.m_normal_edge20 = n1;
+					triangle1.m_normal_edge20 = n0;
+				}
+			}
+		}
+
+		// iterate over the quad array and build the 
+		// horizontal edge adjancency info.
+		for (ndInt32 x = (x1 - x0) - 1; x >= 0; --x)
+		{
+			ndInt32 x_step = x1 - x0;
+			for (ndInt32 z = (z1 - z0) - 1; z >= 1; --z)
+			{
+				ndInt32 quadIndex = x_step * z + x;
+
+				ndGridQuad& quad0 = quadArray[quadIndex - x_step];
+				ndGridQuad& quad1 = quadArray[quadIndex];
+
+				ndTriangle& triangle0 = quad0.m_triangle1;
+				ndTriangle& triangle1 = quad1.m_triangle0;
+
+				const ndVector& origin = vertex[triangle1.m_i1];
+				const ndVector& testPoint = vertex[triangle1.m_i0];
+				const ndVector& normal = vertex[triangle0.m_normal];
+				ndAssert(normal.m_w == ndFloat32(0.0f));
+				ndFloat32 dist(normal.DotProduct(testPoint - origin).GetScalar());
+				if (dist < -ndFloat32(1.0e-3f))
+				{
+					ndInt32 n0 = triangle0.m_normal;
+					ndInt32 n1 = triangle1.m_normal;
+					triangle0.m_normal_edge12 = n1;
+					triangle1.m_normal_edge12 = n0;
+				}
+			}
+		}
 	}
 
-	virtual ndUnsigned64 GetHash(ndUnsigned64 hash) const override
+	private:
+	void CalculateMinExtend3d(const ndVector& p0, const ndVector& p1, ndVector& boxP0, ndVector& boxP1) const
 	{
-		ndAssert(0);
-		// TO DO 
-		return 0;
-		//hash = ndCRC64(&m_planeEquation[0], sizeof(ndVector), hash);
-		//hash = ndCRC64(&m_gridSize, sizeof(ndFloat32), hash);
-		//return hash;
+		ndAssert(p0.m_x <= p1.m_x);
+		ndAssert(p0.m_y <= p1.m_y);
+		ndAssert(p0.m_z <= p1.m_z);
+		ndAssert(p0.m_w == ndFloat32(0.0f));
+		ndAssert(p1.m_w == ndFloat32(0.0f));
+
+		const ndFloat32 gridSize = D_TERRAIN_GRID_SIZE;
+		const ndFloat32 invGridSize = ndFloat32(1.0f) / gridSize;
+
+		boxP0 = ndVector(p0.Scale(invGridSize).Floor().Scale(D_TERRAIN_GRID_SIZE) - m_padding);
+		boxP1 = ndVector((p1.Scale(invGridSize).Floor() + ndVector::m_one).Scale(D_TERRAIN_GRID_SIZE) + m_padding);
+
+		boxP0.m_y = p0.m_y - m_padding.m_y;
+		boxP1.m_y = p0.m_y + m_padding.m_y;
 	}
 
+	void CalculateMinAndMaxElevation(ndInt32 x0, ndInt32 x1, ndInt32 z0, ndInt32 z1, ndFloat32& minHeight, ndFloat32& maxHeight) const
+	{
+		ndReal minVal = ndReal(1.0e10f);
+		ndReal maxVal = -ndReal(1.0e10f);
+
+		ndInt32 base = z0 * D_TERRAIN_WIDTH;
+		for (ndInt32 z = z0; z <= z1; ++z)
+		{
+			for (ndInt32 x = x0; x <= x1; ++x)
+			{
+				ndReal high = m_heightfield[base + x];
+				minVal = ndMin(high, minVal);
+				maxVal = ndMax(high, maxVal);
+			}
+			base += D_TERRAIN_WIDTH;
+		}
+		minHeight = minVal;
+		maxHeight = maxVal;
+	}
+
+	public:
+	ndVector m_minBox;
+	ndVector m_maxBox;
+	ndVector m_padding;
+	ndArray<ndInt8> m_material;
 	ndArray<ndReal> m_heightfield;
 };
 
@@ -259,7 +480,7 @@ class ndHeightfieldMesh : public ndRenderSceneNode
 		// build a collision subtile
 		const ndArray<ndReal>& heightMap = shape->m_heightfield;
 		ndSharedPtr<ndShapeInstance> tileInstance(new ndShapeInstance(new ndShapeHeightfield(xMax, zMax,
-			ndShapeHeightfield::m_invertedDiagonals,
+			ndShapeHeightfield::m_normalDiagonals,
 			D_TERRAIN_GRID_SIZE, D_TERRAIN_GRID_SIZE)));
 
 		ndArray<ndReal>& tileHeightMap = tileInstance->GetShape()->GetAsShapeHeightfield()->GetElevationMap();

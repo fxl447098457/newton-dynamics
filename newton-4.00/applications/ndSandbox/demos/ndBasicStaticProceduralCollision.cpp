@@ -24,6 +24,10 @@ void ndBasicProcedualStaticCollision(ndDemoEntityManager* const scene)
 	// build a placemnet matrix
 	ndQuaternion rot(ndYawMatrix(180.0f * ndDegreeToRad));
 	ndVector floor(FindFloor(*scene->GetWorld(), ndVector::m_zero, 200.0f));
+
+	// no ray case yet, 
+	floor.m_y = 20.0f;
+
 	ndMatrix origin(ndCalculateMatrix(rot, floor));
 
 	// add few props
@@ -43,7 +47,7 @@ void ndBasicProcedualStaticCollision(ndDemoEntityManager* const scene)
 	
 	//floor.m_y += 15.0f;
 	floor = xxxxx.m_posit;
-	floor.m_y = 2.0f;
+	floor.m_y += 1.0f;
 	floor.m_x += 8.0f;
 	scene->SetCameraMatrix(rot, floor);
 }
