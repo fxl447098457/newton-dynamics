@@ -157,22 +157,16 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 		//return ndClamp(t, ndFloat32(0.0f), ndFloat32(1.2f));
 	}
 
-	virtual void GetCollidingFaces(ndPolygonMeshDesc* const data) const override
+	virtual void GetCollidingFaces(const ndVector& minBox, const ndVector& maxBox, ndArray<ndVector>& vertex, ndArray<ndInt32>& faceList, ndArray<ndInt32>& faceMaterial, ndArray<ndInt32>& indexList) const
 	{
-		ndAssert(0);
-		//ndShapeStaticProceduralMesh::GetCollidingFaces(data);
-	}
-
-	virtual void GetCollidingFaces(const ndVector& minBox, const ndVector& maxBox, ndArray<ndVector>& vertex, ndArray<ndInt32>& faceList, ndArray<ndInt32>& faceMaterial, ndArray<ndInt32>& indexListList) const
-	{
-		ndAssert(0);
-		//// generate the point cloud
+		//ndAssert(0);
+		// generate the point cloud
 		//ndVector p0(minBox.Scale(m_invGridSize).Floor());
 		//ndVector p1(maxBox.Scale(m_invGridSize).Floor() + ndVector::m_one);
 		//ndVector origin(p0.Scale(m_gridSize) & ndVector::m_triplexMask);
 		//ndInt32 count_x = ndInt32(p1.m_x - p0.m_x);
 		//ndInt32 count_z = ndInt32(p1.m_z - p0.m_z);
-		//
+		
 		//origin.m_y = 0.0f;
 		//for (ndInt32 iz = 0; iz <= count_z; iz++)
 		//{
