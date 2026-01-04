@@ -27,7 +27,6 @@
 #define D_TERRAIN_NOISE_GRID_SCALE  (1.0f / 500.0f)
 //#define D_TERRAIN_NOISE_GRID_SCALE  1.0f / (ndFloat32 (D_TERRAIN_WIDTH) / 5)
 
-//#define D_TERRAIN_GRID_SIZE		4.0f
 #define D_TERRAIN_GRID_SIZE			2.0f
 #define D_TERRAIN_TILE_SIZE			128
 #define D_TERRAIN_ELEVATION_SCALE	32.0f
@@ -71,14 +70,12 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 			for (ndInt32 x = 0; x < D_TERRAIN_WIDTH; x++)
 			{
 				ndFloat32 noiseVal = BrownianMotion(octaves, persistance, noiseGridScale * ndFloat32(x), noiseGridScale * ndFloat32(z));
-				//m_heightfield[z * D_TERRAIN_WIDTH + x] = ndVector((ndFloat32)x * cellSize, noiseVal, (ndFloat32)z * cellSize, ndFloat32(0.0f));
 				m_heightfield[z * D_TERRAIN_WIDTH + x] = noiseVal;
 				minHeight = ndMin(minHeight, noiseVal);
 				maxHight = ndMax(maxHight, noiseVal);
 			}
 		}
 
-		//ndFloat32 highScale = D_TERRAIN_ELEVATION_SCALE;
 		ndFloat32 scale = D_TERRAIN_ELEVATION_SCALE / (maxHight - minHeight);
 		for (ndInt32 i = 0; i < m_heightfield.GetCapacity(); ++i)
 		{
@@ -147,19 +144,14 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 	virtual ndFloat32 RayCast(ndRayCastNotify&, const ndVector& localP0, const ndVector& localP1, ndFloat32, const ndBody* const, ndContactPoint& contactOut) const override
 	{
 		//ndAssert(0);
+		// TO DO 
 		return 1.0f;
-		//ndVector segment(ndVector::m_triplexMask & (localP1 - localP0));
-		//ndFloat32 den = m_planeEquation.DotProduct(segment).GetScalar();
-		//ndFloat32 num = m_planeEquation.DotProduct(localP0).GetScalar() + m_planeEquation.m_w;
-		//ndFloat32 t = -num / den;
-		//contactOut.m_point = localP0 + segment.Scale(t);
-		//contactOut.m_normal = m_planeEquation;
-		//return ndClamp(t, ndFloat32(0.0f), ndFloat32(1.2f));
 	}
 
 	virtual void GetCollidingFaces(const ndVector& minBox, const ndVector& maxBox, ndArray<ndVector>& vertex, ndArray<ndInt32>& faceList, ndArray<ndInt32>& faceMaterial, ndArray<ndInt32>& indexList) const
 	{
 		//ndAssert(0);
+		// TO DO 
 		// generate the point cloud
 		//ndVector p0(minBox.Scale(m_invGridSize).Floor());
 		//ndVector p1(maxBox.Scale(m_invGridSize).Floor() + ndVector::m_one);
@@ -199,16 +191,13 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 	virtual ndUnsigned64 GetHash(ndUnsigned64 hash) const override
 	{
 		ndAssert(0);
+		// TO DO 
 		return 0;
 		//hash = ndCRC64(&m_planeEquation[0], sizeof(ndVector), hash);
 		//hash = ndCRC64(&m_gridSize, sizeof(ndFloat32), hash);
 		//return hash;
 	}
 
-	//ndVector m_planeEquation;
-	//ndFloat32 m_gridSize;
-	//ndFloat32 m_invGridSize;
-	//ndArray<ndVector> m_heightfield;
 	ndArray<ndReal> m_heightfield;
 };
 
