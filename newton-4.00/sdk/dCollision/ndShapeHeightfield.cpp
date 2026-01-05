@@ -136,12 +136,13 @@ ndVector ndShapeHeightfield::GetLocation(ndInt32 x, ndInt32 z) const
 
 ndInt32 ndShapeHeightfield::FastInt(ndFloat32 x) const
 {
-	ndInt32 i = ndInt32(x);
-	if (ndFloat32(i) > x)
-	{
-		i--;
-	}
-	return i;
+	//ndInt32 i = ndInt32(x);
+	//if (ndFloat32(i) > x)
+	//{
+	//	i--;
+	//}
+	//return i;
+	return ndInt32(ndFloor(x));
 }
 
 void ndShapeHeightfield::CalculateLocalObb()
