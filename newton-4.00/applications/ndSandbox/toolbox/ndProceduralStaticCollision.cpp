@@ -198,7 +198,7 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 
 		if ((maxHeight < boxP0.m_y) || (minHeight > boxP1.m_y))
 		{
-			// the box does not interset the highfield
+			// the box does not interset the heightfield
 			return;
 		}
 		const ndInt32 count_x = x1 - x0;
@@ -206,7 +206,7 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 		ndInt32 numberOfQuad = (x1 - x0) * (z1 - z0);
 		if (numberOfQuad == 0)
 		{
-			// box overlap but not faces are collnected
+			// box overlap but not faces are collected
 			return;
 		}
 
