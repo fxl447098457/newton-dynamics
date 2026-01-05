@@ -246,7 +246,7 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 		const ndInt32 step = x1 - x0 + 1;
 		ndInt32 normalBase = ndInt32 (vertex.GetCount());
 
-		// set the number of traingles, in integers, 
+		// set the number of triangles in integers, 
 		// and get the pointer to the quad array
 		quadDataArray.SetCount(2 * numberOfQuad * ndInt32(sizeof(ndGridQuad) / sizeof(ndInt32)));
 		ndGridQuad* const quadArray = (ndGridQuad*)&quadDataArray[0];
@@ -441,15 +441,7 @@ class ndHeightfieldMesh : public ndRenderSceneNode
 			for (ndInt32 x = 0; x < D_TERRAIN_WIDTH - 1; x += D_TERRAIN_TILE_SIZE)
 			{
 				ndSharedPtr<ndShapeInstance> tileShape(BuildTile(shape, x, z));
-				const ndShapeHeightfield* const heightfield = tileShape->GetShape()->GetAsShapeHeightfield();
-
-				ndMatrix tileMatrix(ndGetIdentityMatrix());
-				tileMatrix.m_posit += heightfield->GetLocation(0, 0);
-				tileMatrix.m_posit.m_y = ndFloat32(0.0f);
-				tileMatrix.m_posit.m_x += ndFloat32(x) * heightfield->GetWithScale();
-				tileMatrix.m_posit.m_z += ndFloat32(z) * heightfield->GetHeightScale();
-
-				ndSharedPtr<ndRenderSceneNode> tileNode(new ndRenderSceneNode(tileMatrix));
+				ndSharedPtr<ndRenderSceneNode> tileNode(new ndRenderSceneNode(ndGetIdentityMatrix()));
 				AddChild(tileNode);
 
 				ndRenderPrimitive::ndDescriptor descriptor(render);
@@ -477,25 +469,44 @@ class ndHeightfieldMesh : public ndRenderSceneNode
 
 	ndSharedPtr<ndShapeInstance> BuildTile(const ndProceduralTerrainShape* const shape, ndInt32 x0, ndInt32 z0)
 	{
-		const ndInt32 xMax = ((x0 + D_TERRAIN_TILE_SIZE) >= D_TERRAIN_WIDTH) ? D_TERRAIN_TILE_SIZE : D_TERRAIN_TILE_SIZE + 1;
-		const ndInt32 zMax = ((z0 + D_TERRAIN_TILE_SIZE) >= D_TERRAIN_HEIGHT) ? D_TERRAIN_TILE_SIZE : D_TERRAIN_TILE_SIZE + 1;
+		const ndInt32 xMax = ((x0 + D_TERRAIN_TILE_SIZE) >= D_TERRAIN_WIDTH) ? D_TERRAIN_TILE_SIZE - 1: D_TERRAIN_TILE_SIZE + 1;
+		const ndInt32 zMax = ((z0 + D_TERRAIN_TILE_SIZE) >= D_TERRAIN_HEIGHT) ? D_TERRAIN_TILE_SIZE - 1: D_TERRAIN_TILE_SIZE + 1;
 
-		// build a collision subtile
+		// build a collision sub tile
+		const ndArray<ndInt8>& materialMap = shape->m_material;
 		const ndArray<ndReal>& heightMap = shape->m_heightfield;
-		ndSharedPtr<ndShapeInstance> tileInstance(new ndShapeInstance(new ndShapeHeightfield(xMax, zMax,
-			ndShapeHeightfield::m_normalDiagonals,
-			D_TERRAIN_GRID_SIZE, D_TERRAIN_GRID_SIZE)));
 
-		ndArray<ndReal>& tileHeightMap = tileInstance->GetShape()->GetAsShapeHeightfield()->GetElevationMap();
+		ndPolygonSoupBuilder tileBuilder;
+		tileBuilder.Begin();
 		for (ndInt32 z = 0; z < zMax; z++)
 		{
+			const ndReal* const row = &heightMap[(z + z0) * D_TERRAIN_WIDTH];
+			const ndInt8* const materialRow = &materialMap[(z + z0) * D_TERRAIN_WIDTH];
+
+			ndVector p0(ndFloat32(x0) * D_TERRAIN_GRID_SIZE, ndFloat32(row[x0]), ndFloat32(z0 + z) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f));
+			ndVector p1(ndFloat32(x0) * D_TERRAIN_GRID_SIZE, ndFloat32(row[x0 + D_TERRAIN_WIDTH]), ndFloat32(z0 + z + 1) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f));
 			for (ndInt32 x = 0; x < xMax; x++)
 			{
-				ndReal h = heightMap[(z0 + z) * D_TERRAIN_WIDTH + x0 + x];
-				tileHeightMap[z * xMax + x] = h;
+				const ndVector q0(ndFloat32(x0 + x + 1) * D_TERRAIN_GRID_SIZE, ndFloat32(row[x0 + x]), ndFloat32(z0 + z) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f));
+				const ndVector q1(ndFloat32(x0 + x + 1) * D_TERRAIN_GRID_SIZE, ndFloat32(row[x0 + x + D_TERRAIN_WIDTH]), ndFloat32(z0 + z + 1) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f));
+
+				ndVector triangle[3];
+				triangle[0] = p0;
+				triangle[1] = p1;
+				triangle[2] = q0;
+				tileBuilder.AddFace(&triangle[0].m_x, sizeof(ndVector), 3, materialRow[x0 + x]);
+				
+				triangle[0] = p1;
+				triangle[1] = q1;
+				triangle[2] = q0;
+				tileBuilder.AddFace(&triangle[0].m_x, sizeof(ndVector), 3, materialRow[x0 + x]);
+
+				p0 = q0;
+				p1 = q1;
 			}
 		}
-		tileInstance->GetShape()->GetAsShapeHeightfield()->UpdateElevationMapAabb();
+		tileBuilder.End(false);
+		ndSharedPtr<ndShapeInstance> tileInstance(new ndShapeInstance(new ndShapeStatic_bvh(tileBuilder))); 
 		return tileInstance;
 	}
 };
