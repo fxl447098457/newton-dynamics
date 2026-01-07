@@ -111,15 +111,15 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 		for (ndInt32 z = 0; z < D_TERRAIN_HEIGHT - 1; z++)
 		{
 			const ndReal* const row = &m_heightfield[z * D_TERRAIN_WIDTH];
-			ndVector p0(ndFloat32(0.0f), ndFloat32(row[0]), ndFloat32(z) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f));
+			ndVector p0(ndFloat32(0.0f), ndFloat32(row[0]),				  ndFloat32(z + 0) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f));
 			ndVector p1(ndFloat32(0.0f), ndFloat32(row[D_TERRAIN_WIDTH]), ndFloat32(z + 1) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f));
 			p0 = matrix.TransformVector(p0);
 			p1 = matrix.TransformVector(p1);
 
-			for (ndInt32 x = 0; x < D_TERRAIN_WIDTH - 1; x++)
+			for (ndInt32 x = 1; x < D_TERRAIN_WIDTH - 1; x++)
 			{
-				const ndVector q0(matrix.TransformVector(ndVector(ndFloat32(x + 1) * D_TERRAIN_GRID_SIZE, ndFloat32(row[x]), ndFloat32(z) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f))));
-				const ndVector q1(matrix.TransformVector(ndVector(ndFloat32(x + 1) * D_TERRAIN_GRID_SIZE, ndFloat32(row[x + D_TERRAIN_WIDTH]), ndFloat32(z + 1) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f))));
+				const ndVector q0(matrix.TransformVector(ndVector(ndFloat32(x) * D_TERRAIN_GRID_SIZE, ndFloat32(row[x]),                   ndFloat32(z + 0) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f))));
+				const ndVector q1(matrix.TransformVector(ndVector(ndFloat32(x) * D_TERRAIN_GRID_SIZE, ndFloat32(row[x + D_TERRAIN_WIDTH]), ndFloat32(z + 1) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f))));
 
 				ndVector triangle[3];
 				triangle[0] = p0;
@@ -548,18 +548,18 @@ class ndHeightfieldMesh : public ndRenderSceneNode
 			const ndReal* const row = &heightMap[(z + z0) * D_TERRAIN_WIDTH];
 			const ndInt8* const materialRow = &materialMap[(z + z0) * D_TERRAIN_WIDTH];
 
-			ndVector p0(ndFloat32(x0) * D_TERRAIN_GRID_SIZE, ndFloat32(row[x0]), ndFloat32(z0 + z) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f));
+			ndVector p0(ndFloat32(x0) * D_TERRAIN_GRID_SIZE, ndFloat32(row[x0]),				   ndFloat32(z0 + z + 0) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f));
 			ndVector p1(ndFloat32(x0) * D_TERRAIN_GRID_SIZE, ndFloat32(row[x0 + D_TERRAIN_WIDTH]), ndFloat32(z0 + z + 1) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f));
-			for (ndInt32 x = 0; x < xMax; x++)
+			for (ndInt32 x = 1; x < xMax; x++)
 			{
-				const ndVector q0(ndFloat32(x0 + x + 1) * D_TERRAIN_GRID_SIZE, ndFloat32(row[x0 + x]), ndFloat32(z0 + z) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f));
-				const ndVector q1(ndFloat32(x0 + x + 1) * D_TERRAIN_GRID_SIZE, ndFloat32(row[x0 + x + D_TERRAIN_WIDTH]), ndFloat32(z0 + z + 1) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f));
+				const ndVector q0(ndFloat32(x0 + x) * D_TERRAIN_GRID_SIZE, ndFloat32(row[x0 + x]),                   ndFloat32(z0 + z + 0) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f));
+				const ndVector q1(ndFloat32(x0 + x) * D_TERRAIN_GRID_SIZE, ndFloat32(row[x0 + x + D_TERRAIN_WIDTH]), ndFloat32(z0 + z + 1) * D_TERRAIN_GRID_SIZE, ndFloat32(1.0f));
 
 				ndVector triangle[3];
 				triangle[0] = p0;
 				triangle[1] = p1;
 				triangle[2] = q0;
-				tileBuilder.AddFace(&triangle[0].m_x, sizeof(ndVector), 3, materialRow[x0 + x]);
+				tileBuilder.AddFace(&triangle[0].m_x, sizeof(ndVector), 3, materialRow[x0 + x - 1]);
 				
 				triangle[0] = p1;
 				triangle[1] = q1;
