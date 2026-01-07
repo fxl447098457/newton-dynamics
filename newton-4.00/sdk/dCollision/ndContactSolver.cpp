@@ -3774,7 +3774,9 @@ ndInt32 ndContactSolver::CalculatePolySoupToHullContactsContinue(ndPolygonMeshDe
 		ndAssert(polygon.m_normal.m_w == ndFloat32(0.0f));
 		for (ndInt32 j = 0; j < polygon.m_count; ++j)
 		{
-			polygon.m_localPoly[j] = polySoupScaledMatrix.TransformVector(ndVector(&vertex[localIndexArray[j] * stride]) & ndVector::m_triplexMask);
+			ndVector p(&vertex[localIndexArray[j] * stride]);
+			p.m_w = ndFloat32(1.0f);
+			polygon.m_localPoly[j] = polySoupScaledMatrix.TransformVector(ndVector(p));
 		}
 
 		m_vertexIndex = 0;
