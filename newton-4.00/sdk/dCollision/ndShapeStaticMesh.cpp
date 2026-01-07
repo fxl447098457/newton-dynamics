@@ -104,8 +104,8 @@ void ndShapeStaticMesh::ndPatchMesh::GetFacesPatch(ndPolygonMeshDesc* const data
 		indexArray.PushBack(1);
 	}
 
-	// add the ajacency info
-	ndFixSizeArray<ndEdgeList, 1024> egdeArray(0);
+	// add the adjacency info
+	ndFixSizeArray<ndEdgeList, MESH_SIZE * 4> egdeArray(0);
 	for (ndInt32 i = 0; i < m_faceArray.GetCount() - 1; ++i)
 	{
 		const ndInt32 indexStart = m_faceArray[i];
@@ -154,8 +154,8 @@ void ndShapeStaticMesh::ndPatchMesh::GetFacesPatch(ndPolygonMeshDesc* const data
 		const ndEdgeList& edge1 = egdeArray[i + 1];
 		if (edge0.m_key == edge1.m_key)
 		{
+			ndInt32 orginIndex = indexArray[edge0.m_faceStart + edge0.m_edge];
 			ndInt32 normalIndex = indexArray[edge0.m_faceStart + edge0.m_faceVertexCount + 2];
-			ndInt32 orginIndex = indexArray[edge0.m_faceStart + edge0.m_faceVertexCount + edge0.m_edge + 3];
 			const ndVector normal(vertex[normalIndex]);
 			const ndVector origin(vertex[orginIndex]);
 
@@ -164,7 +164,7 @@ void ndShapeStaticMesh::ndPatchMesh::GetFacesPatch(ndPolygonMeshDesc* const data
 			const ndInt32 faceVertexCount = edge1.m_faceVertexCount;
 			for (ndInt32 j = 0; j < faceVertexCount; ++j)
 			{
-				ndInt32 vertexIndex = indexArray[edge0.m_faceStart + j];
+				ndInt32 vertexIndex = indexArray[edge1.m_faceStart + j];
 				const ndVector p(vertex[vertexIndex]);
 				ndFloat32 maxDist1 = normal.DotProduct(p - origin).GetScalar();
 				ndFloat32 absDist1 = ndAbs(maxDist1);
@@ -176,9 +176,9 @@ void ndShapeStaticMesh::ndPatchMesh::GetFacesPatch(ndPolygonMeshDesc* const data
 			}
 			if (maxDist < ndFloat32(1.0e-3f))
 			{
-				ndInt32 index0 = edge0.m_faceStart + edge0.m_faceVertexCount + edge0.m_edge + 2;
-				ndInt32 index1 = edge1.m_faceStart + edge1.m_faceVertexCount + edge1.m_edge + 2;
-				ndSwap(indexArray[index0], indexArray[index1]);
+				ndInt32 normalIndex0 = edge0.m_faceStart + edge0.m_faceVertexCount + edge0.m_edge + 2;
+				ndInt32 normalIndex1 = edge1.m_faceStart + edge1.m_faceVertexCount + edge1.m_edge + 2;
+				ndSwap(indexArray[normalIndex0], indexArray[normalIndex1]);
 			}
 			i++;
 		}
