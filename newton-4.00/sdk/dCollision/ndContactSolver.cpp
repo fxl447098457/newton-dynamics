@@ -3733,13 +3733,13 @@ ndInt32 ndContactSolver::CalculatePolySoupToHullContactsContinue(ndPolygonMeshDe
 
 	const ndVector& polygonInstanceScale = polySoupInstance.GetScale();
 	const ndMatrix& polySoupGlobalMatrix = polySoupInstance.GetGlobalMatrix();
-	const ndMatrix& polySoupGlobalalignmentMatrix = polySoupInstance.GetAlignmentMatrix();
+	const ndMatrix& polySoupGlobalAlignmentMatrix = polySoupInstance.GetAlignmentMatrix();
 
 	ndMatrix polySoupScaledMatrix(
-		polySoupGlobalalignmentMatrix[0] * polygonInstanceScale,
-		polySoupGlobalalignmentMatrix[1] * polygonInstanceScale,
-		polySoupGlobalalignmentMatrix[2] * polygonInstanceScale,
-		polySoupGlobalalignmentMatrix[3]);
+		polySoupGlobalAlignmentMatrix[0] * polygonInstanceScale,
+		polySoupGlobalAlignmentMatrix[1] * polygonInstanceScale,
+		polySoupGlobalAlignmentMatrix[2] * polygonInstanceScale,
+		polySoupGlobalAlignmentMatrix[3]);
 	polySoupScaledMatrix = polySoupScaledMatrix * polySoupGlobalMatrix;
 
 	const ndInt32 stride = polygon.m_stride;
@@ -3974,13 +3974,13 @@ ndInt32 ndContactSolver::CalculatePolySoupToHullContactsDescrete(ndPolygonMeshDe
 
 	const ndVector& polygonInstanceScale = polySoupInstance.GetScale();
 	const ndMatrix& polySoupGlobalMatrix = polySoupInstance.GetGlobalMatrix();
-	const ndMatrix& polySoupGlobalalignmentMatrix = polySoupInstance.GetAlignmentMatrix();
+	const ndMatrix& polySoupGlobalAlignmentMatrix = polySoupInstance.GetAlignmentMatrix();
 
 	ndMatrix polySoupScaledMatrix(
-		polySoupGlobalalignmentMatrix[0] * polygonInstanceScale,
-		polySoupGlobalalignmentMatrix[1] * polygonInstanceScale,
-		polySoupGlobalalignmentMatrix[2] * polygonInstanceScale,
-		polySoupGlobalalignmentMatrix[3]);
+		polySoupGlobalAlignmentMatrix[0] * polygonInstanceScale,
+		polySoupGlobalAlignmentMatrix[1] * polygonInstanceScale,
+		polySoupGlobalAlignmentMatrix[2] * polygonInstanceScale,
+		polySoupGlobalAlignmentMatrix[3]);
 	polySoupScaledMatrix = polySoupScaledMatrix * polySoupGlobalMatrix;
 
 	ndAssert(m_contact);
@@ -3994,10 +3994,16 @@ ndInt32 ndContactSolver::CalculatePolySoupToHullContactsDescrete(ndPolygonMeshDe
 	ndContact* const contactJoint = m_contact;
 	const ndInt32* const indexArray = &query.m_faceVertexIndex[0];
 
+static int xxxx;
+if (xxxx >= 21228)
+xxxx *= 1;
+
 	data.SortFaceArray();
 	const ndInt32 faceCount = ndInt32(query.m_faceIndexCount.GetCount());
 	for (ndInt32 i = 0; (i < faceCount) && (count < 32); ++i)
 	{
+
+xxxx++;
 		ndInt32 address = query.m_faceIndexStart[i];
 		const ndInt32* const localIndexArray = &indexArray[address];
 		polygon.m_vertexIndex = localIndexArray;

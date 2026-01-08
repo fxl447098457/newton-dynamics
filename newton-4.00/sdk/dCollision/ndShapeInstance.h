@@ -131,6 +131,7 @@ class ndShapeInstance: public ndContainersFreeListAlloc<ndShapeInstance>
 	D_COLLISION_API void SetShape(ndShape* const shape);
 	D_COLLISION_API ndVector SupportVertex(const ndVector& dir) const;
 	D_COLLISION_API ndMatrix GetScaledTransform(const ndMatrix& matrix) const;
+	D_COLLISION_API ndMatrix GetInvScaledTransform(const ndMatrix& matrix) const;
 	D_COLLISION_API ndVector SupportVertexSpecial(const ndVector& dir) const;
 	D_COLLISION_API ndVector SupportVertexSpecialProjectPoint(const ndVector& point, const ndVector& dir) const;
 

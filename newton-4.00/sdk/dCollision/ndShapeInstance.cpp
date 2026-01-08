@@ -147,6 +147,16 @@ ndMatrix ndShapeInstance::GetScaledTransform(const ndMatrix& matrix) const
 	return m_alignmentMatrix * scale * m_localMatrix * matrix;
 }
 
+ndMatrix ndShapeInstance::GetInvScaledTransform(const ndMatrix& matrix) const
+{
+	ndMatrix invScale(ndGetIdentityMatrix());
+	invScale[0][0] = m_invScale.m_x;
+	invScale[1][1] = m_invScale.m_y;
+	invScale[2][2] = m_invScale.m_z;
+	return (m_localMatrix * matrix).OrthoInverse() * invScale * m_alignmentMatrix.OrthoInverse();
+
+}
+
 ndInt32 ndShapeInstance::GetConvexVertexCount() const
 {
 	return m_shape->GetConvexVertexCount();

@@ -305,12 +305,11 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 			return;
 		}
 
-		// start building the mesh
-		
-		// since the vertex pathc has no duplicate, we can skip 
-		// the vertex sorting
+		// since the vertex pathc has no duplicate, 
+		// we can skip the vertex sorting
 		patch.m_vertexArrayHasDuplicated = false;
 
+		// start building the mesh
 		// build the array of unique vertices
 		const ndVector p0(ndFloat32(x0), ndFloat32(0.0f), ndFloat32(z0), ndFloat32(0.0f));
 		ndVector patchOrigin(p0 * m_gridSize);

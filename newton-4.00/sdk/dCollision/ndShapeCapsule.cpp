@@ -512,3 +512,8 @@ ndInt32 ndShapeCapsule::ValidatePolygonCapContacts(const ndShapeInstance& instan
 {
 	return ValidateImplicitShapePolygonCapContacts(instance, convexPolygon, contactCount, contacts, pointInPolygon);
 }
+
+ndInt32 ndShapeCapsule::RecalculateFaceContacts(ndInt32 pointCount, const ndVector* const localPolygon, ndVector* const contacts) const
+{
+	return 0;
+}

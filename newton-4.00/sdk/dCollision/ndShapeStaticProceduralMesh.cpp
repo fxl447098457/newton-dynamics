@@ -124,6 +124,16 @@ void ndShapeStaticProceduralMesh::GetCollidingFaces(ndPolygonMeshDesc* const dat
 		faceIndexCount.SetCount(faceCount0);
 		data->m_vertex = &vertex[0].m_x;
 		data->m_vertexStrideInBytes = sizeof(ndVector);
+
+		static ndInt32 xxxx;
+		ndFloat32 xxxx1 = data->m_convexInstance->m_ownerBody->GetVelocity().m_y;
+		ndTrace(("%d %f\n", xxxx, xxxx1));
+		if (xxxx >= 3864)
+		{
+			xxxx *= 1;
+		}
+		xxxx++;
+
 	}
 }
 

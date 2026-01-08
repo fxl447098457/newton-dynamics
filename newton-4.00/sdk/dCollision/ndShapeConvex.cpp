@@ -1080,7 +1080,7 @@ const ndShapeConvex::ndConvexSimplexEdge** ndShapeConvex::GetVertexToEdgeMapping
 	return nullptr;
 }
 
-ndInt32 ndShapeConvex::ValidatePolygonCapContacts(const ndShapeInstance& instance, const ndShapeConvexPolygon* const convexPolygon, ndInt32 contactCount, ndVector* const contacts, const ndVector&) const
+ndInt32 ndShapeConvex::ValidatePolygonCapContacts(const ndShapeInstance&, const ndShapeConvexPolygon* const convexPolygon, ndInt32 contactCount, ndVector* const contacts, const ndVector&) const
 {
 	ndFixSizeArray<ndBigVector, 32> poly;
 	ndAssert(convexPolygon->m_count < poly.GetCapacity());
@@ -1108,8 +1108,19 @@ ndInt32 ndShapeConvex::ValidatePolygonCapContacts(const ndShapeInstance& instanc
 	return count;
 }
 
-ndInt32 ndShapeConvex::ValidateImplicitShapePolygonCapContacts(const ndShapeInstance& instance, const ndShapeConvexPolygon* const convexPolygon, ndInt32 contactCount, ndVector* const contacts, const ndVector& pointInPolygon) const
+ndInt32 ndShapeConvex::RecalculateFaceContacts(ndInt32 pointCount, const ndVector* const localPolygon, ndVector* const contacts) const
 {
+	ndAssert(0);
+	return 0;
+}
+
+ndInt32 ndShapeConvex::ValidateImplicitShapePolygonCapContacts(const ndShapeInstance& convexShapeInstance, const ndShapeConvexPolygon* const convexPolygon, ndInt32 contactCount, ndVector* const contacts, const ndVector& pointInPolygon) const
+{
+static int xxxx;
+if (xxxx >= 6981)
+xxxx *= 1;
+xxxx++;
+
 	ndFixSizeArray<ndBigVector, 32> poly;
 	ndAssert(convexPolygon->m_count < poly.GetCapacity());
 	for (ndInt32 i = 0; i < convexPolygon->m_count; ++i)
@@ -1147,7 +1158,20 @@ ndInt32 ndShapeConvex::ValidateImplicitShapePolygonCapContacts(const ndShapeInst
 		ndAssert(count);
 		return count;
 	}
-	// the contact are unreliable, 
+	// the contacts are unreliable. 
 	// we have to trow them away and recalculate a new set base of the shape type.
-	return 0;
+	ndFixSizeArray<ndVector, 32> faceInShapeSpace;
+	const ndMatrix invMatrix(convexShapeInstance.GetInvScaledTransform(convexShapeInstance.GetGlobalMatrix()));
+	for (ndInt32 i = 0; i < convexPolygon->m_count; ++i)
+	{
+		const ndVector p(convexPolygon->m_localPoly[i]);
+		faceInShapeSpace.PushBack(invMatrix.TransformVector(p));
+	}
+	const ndMatrix matrix (convexShapeInstance.GetScaledTransform(convexShapeInstance.GetGlobalMatrix()));
+	const ndInt32 count = RecalculateFaceContacts(faceInShapeSpace.GetCount(), &faceInShapeSpace[0], contacts);
+	for (ndInt32 i = 0; i < count; ++i)
+	{
+		contacts[i] = matrix.TransformVector(contacts[i]);
+	}
+	return count;
 }
