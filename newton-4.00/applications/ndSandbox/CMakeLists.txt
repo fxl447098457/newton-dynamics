@@ -153,7 +153,11 @@ if(MSVC OR MINGW)
 		target_link_libraries (${projectName} PUBLIC ${openclSDKPath}/lib/OpenCL.lib)
 	endif()
 
-	target_link_options(${projectName} PUBLIC "/DEBUG") 
+	if(MSVC)
+		target_link_options(${projectName} PUBLIC "/DEBUG")
+	elseif(MINGW)
+		target_link_options(${projectName} PUBLIC "-debug")
+	endif()
 
     if(CMAKE_VS_MSBUILD_COMMAND OR CMAKE_VS_DEVENV_COMMAND)
 		set_target_properties(${projectName} PROPERTIES COMPILE_FLAGS "/YundSandboxStdafx.h")

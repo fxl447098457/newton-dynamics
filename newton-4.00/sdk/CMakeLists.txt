@@ -83,8 +83,10 @@ else()
 		add_definitions(-D_D_COLLISION_EXPORT_DLL)
 		add_library(${projectName} SHARED ${CPP_SOURCE})
 
-		if(MSVC OR MINGW)
-			target_link_options(${projectName} PUBLIC "/DEBUG") 
+		if(MSVC)
+			target_link_options(${projectName} PUBLIC "/DEBUG")
+		elseif(MINGW)
+			target_link_options(${projectName} PUBLIC "-debug")
 		endif()
 
 	else()

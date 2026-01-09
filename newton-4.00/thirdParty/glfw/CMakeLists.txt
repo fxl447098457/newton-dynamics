@@ -13,10 +13,8 @@ cmake_minimum_required(VERSION 3.10.0 FATAL_ERROR)
 set (projectName "glfw")
 message (${projectName})
 
-if (MSVC)
+if(MSVC OR MINGW)
 	add_definitions(-D_GLFW_WIN32)
-elseif(MINGW)
-	add_definitions(-D__CYGWIN__)
 elseif(APPLE)
 	add_definitions(-D_GLFW_COCOA)
 else(UNIX)
@@ -55,7 +53,7 @@ file(GLOB source
 
 add_library(${projectName} STATIC ${source})
 
-if (MSVC)
+if (MSVC OR MINGW)
     target_sources(${projectName} PRIVATE 
 		#src/win32_time.h 
 		#src/win32_thread.h 
