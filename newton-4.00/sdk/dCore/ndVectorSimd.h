@@ -299,6 +299,11 @@ class ndBigVector: public ndClassAlloc
 		return ndBigVector(_mm256_floor_pd(m_type));
 	}
 
+	inline ndBigVector Ceiling() const
+	{
+		return ndBigVector(_mm256_ceil_pd(m_type));
+	}
+
 	inline ndBigVector GetInt() const
 	{
 		__m256d tmp0(_mm256_floor_pd(m_type));
@@ -833,18 +838,35 @@ class ndBigVector : public ndClassAlloc
 
 	inline ndBigVector Floor() const
 	{
+		// compiler does a better job? 
+		//ndFloat64 x = ndFloor(m_x);
+		//ndFloat64 y = ndFloor(m_y);
+		//ndFloat64 z = ndFloor(m_z);
+		//ndFloat64 w = ndFloor(m_w);
+		//return ndBigVector(x, y, z, w);
+
+		// no really
 		ndInt64 x = _mm_cvtsd_si64(m_typeLow);
 		ndInt64 y = _mm_cvtsd_si64(_mm_unpackhi_pd(m_typeLow, m_typeLow));
 		ndInt64 z = _mm_cvtsd_si64(m_typeHigh);
 		ndInt64 w = _mm_cvtsd_si64(_mm_unpackhi_pd(m_typeHigh, m_typeHigh));
-
+		
 		__m128d one(ndBigVector::m_one.m_typeLow);
 		__m128d xy(_mm_unpacklo_pd(_mm_cvtsi64_sd(m_typeHigh, x), _mm_cvtsi64_sd(m_typeHigh, y)));
 		__m128d zw(_mm_unpacklo_pd(_mm_cvtsi64_sd(m_typeHigh, z), _mm_cvtsi64_sd(m_typeHigh, w)));
-
+		
 		__m128d xy_round(_mm_and_pd(one, _mm_cmplt_pd(m_typeLow, xy)));
 		__m128d zw_round(_mm_and_pd(one, _mm_cmplt_pd(m_typeHigh, zw)));
 		return ndBigVector(_mm_sub_pd(xy, xy_round), _mm_sub_pd(zw, zw_round));
+	}
+
+	inline ndBigVector Ceiling() const
+	{
+		ndFloat64 x = ndCeil(m_x);
+		ndFloat64 y = ndCeil(m_y);
+		ndFloat64 z = ndCeil(m_z);
+		ndFloat64 w = ndCeil(m_w);
+		return ndBigVector(x, y, z, w);
 	}
 
 	inline ndBigVector GetInt() const
@@ -1446,17 +1468,37 @@ class ndVector : public ndClassAlloc
 
 	inline ndVector Floor() const
 	{
-#ifdef D_NEWTON_USE_AVX2_OPTION
-		return _mm_floor_ps(m_type);
-#else
-		ndVector truncated(_mm_cvtepi32_ps(_mm_cvttps_epi32(m_type)));
-		ndVector ret(truncated - (ndVector::m_one & (*this < truncated)));
-		ndAssert(ret.m_f[0] == ndFloor(m_f[0]));
-		ndAssert(ret.m_f[1] == ndFloor(m_f[1]));
-		ndAssert(ret.m_f[2] == ndFloor(m_f[2]));
-		ndAssert(ret.m_f[3] == ndFloor(m_f[3]));
-		return ret;
-#endif
+		#ifdef D_NEWTON_USE_AVX2_OPTION
+			return _mm_floor_ps(m_type);
+		#else
+			ndVector truncated(_mm_cvtepi32_ps(_mm_cvttps_epi32(m_type)));
+			ndVector ret(truncated - (ndVector::m_one & (*this < truncated)));
+			ndAssert(ret.m_f[0] == ndFloor(m_f[0]));
+			ndAssert(ret.m_f[1] == ndFloor(m_f[1]));
+			ndAssert(ret.m_f[2] == ndFloor(m_f[2]));
+			ndAssert(ret.m_f[3] == ndFloor(m_f[3]));
+			return ret;
+		#endif
+	}
+
+	inline ndVector Ceiling() const
+	{
+		#ifdef D_NEWTON_USE_AVX2_OPTION
+			return _mm_ceil_ps(m_type);
+		#else
+			ndFloat32 x = ndCeil(m_x);
+			ndFloat32 y = ndCeil(m_y);
+			ndFloat32 z = ndCeil(m_z);
+			ndFloat32 w = ndCeil(m_w);
+			ndVector ret(x, y, z, w);
+			//ndVector truncated(_mm_cvtepi32_ps(_mm_cvttps_epi32(m_type)));
+			//ndVector ret(truncated - (ndVector::m_one & (*this < truncated)));
+			//ndAssert(ret.m_f[0] == ndFloor(m_f[0]));
+			//ndAssert(ret.m_f[1] == ndFloor(m_f[1]));
+			//ndAssert(ret.m_f[2] == ndFloor(m_f[2]));
+			//ndAssert(ret.m_f[3] == ndFloor(m_f[3]));
+			return ret;
+		#endif
 	}
 
 	inline ndVector GetInt() const
