@@ -28,13 +28,12 @@ void ndBasicHeighfieldCollision(ndDemoEntityManager* const scene)
 	ndVector floor(FindFloor(*scene->GetWorld(), origin, 200.0f));
 	ndMatrix originMatrix(ndCalculateMatrix(rot, floor));
 
-	ndSharedPtr<ndBody> testBody(AddSphere(scene, originMatrix, 1.0f, 0.25f, "wood_0.png"));
-	//ndSharedPtr<ndBody> testBody(AddCapsule(scene, originMatrix, 1.0f, 0.5f, 0.5f, 1.0f, "wood_0.png"));
+	//ndSharedPtr<ndBody> testBody(AddSphere(scene, originMatrix, 1.0f, 0.25f, "wood_0.png"));
+	ndSharedPtr<ndBody> testBody(AddCapsule(scene, originMatrix, 1.0f, 0.5f, 0.5f, 1.0f, "wood_0.png"));
 	//ndSharedPtr<ndBody> testBody(AddBox(scene, originMatrix, 1.0f, 0.5f, 0.5f, 1.0f, "wood_0.png"));
 	//ndSharedPtr<ndBody> testBody(AddCylinder(scene, originMatrix, 1.0f, 0.5f, 0.5f, 1.0f, "wood_0.png"));
 	//ndSharedPtr<ndBody> testBody(AddConvexHull(scene, originMatrix, 40.0f, 0.7f, 1.0f, 10, "wood_0.png"));
-	//testBody->SetOmega(ndVector (20.0f, 0.0f, 0.0f, 0.0f));
-
+	testBody->SetOmega(ndVector (20.0f, 0.0f, 0.0f, 0.0f));
 
 	//// add few props
 	//origin.m_posit += origin.m_front.Scale (ndFloat32 (40.0f));

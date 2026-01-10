@@ -200,23 +200,17 @@ void ndShapeHeightfield::CalculateMinExtend3d(const ndVector& p0, const ndVector
 
 	const ndVector scale(m_horizontalScale_x, ndFloat32(0.0f), m_horizontalScale_z, ndFloat32(0.0f));
 	const ndVector invScale(m_horizontalScaleInv_x, ndFloat32(0.0f), m_horizontalScaleInv_z, ndFloat32(0.0f));
-	//const ndVector q0(p0.GetMin(p1) - m_padding);
-	//const ndVector q1(p0.GetMax(p1) + scale + m_padding);
-	//boxP0 = q0.Select((q0 * invScale).Floor() * scale, m_yMask);
-	//boxP1 = q1.Select((q1 * invScale).Floor() * scale + scale, m_yMask);
-	//boxP0 = boxP0.Select(boxP0.GetMax(m_minBox), m_yMask);
-	//boxP1 = boxP1.Select(boxP1.GetMax(m_minBox), m_yMask);
-	//boxP0 = boxP0.Select(boxP0.GetMin(m_maxBox), m_yMask);
-	//boxP1 = boxP1.Select(boxP1.GetMin(m_maxBox), m_yMask);
 
-	boxP0 = (invScale * (p0 - m_padding).Floor()) * scale;
-	boxP1 = (invScale * (p1 + scale).Floor()) * scale;
+	//boxP0 = (invScale * (p0 - m_padding).Floor()) * scale;
+	//boxP1 = (invScale * (p1 + scale).Floor()) * scale;
+	boxP0 = (invScale * p0.Floor()) * scale;
+	boxP1 = (invScale * (p1 + scale).Ceiling()) * scale;
 
 	boxP0.m_y = p0.m_y - m_padding.m_y;
 	boxP1.m_y = p1.m_y + m_padding.m_y;
 
-	ndAssert(boxP0.m_x <= boxP1.m_x);
-	ndAssert(boxP0.m_z <= boxP1.m_z);
+	ndAssert(boxP0.m_x < boxP1.m_x);
+	ndAssert(boxP0.m_z < boxP1.m_z);
 }
 
 void ndShapeHeightfield::GetLocalAabb(const ndVector& q0, const ndVector& q1, ndVector& boxP0, ndVector& boxP1) const
@@ -338,7 +332,13 @@ ndFloat32 ndShapeHeightfield::RayCast(ndRayCastNotify&, const ndVector& localP0,
 	ndVector boxP1;
 
 	// calculate the ray bounding box
-	CalculateMinExtend2d(localP0, localP1, boxP0, boxP1);
+	//CalculateMinExtend2d(localP0, localP1, boxP0, boxP1);
+	// make sure p0 and p1 are in the right order
+	const ndVector q0(localP0.GetMin(localP1) - m_padding);
+	const ndVector q1(localP0.GetMax(localP1) + m_padding);
+	CalculateMinExtend3d(q0, q1, boxP0, boxP1);
+	boxP0.m_y = -ndFloat32(1.0e10f);
+	boxP1.m_y = ndFloat32(1.0e10f);
 
 	ndVector p0(localP0);
 	ndVector p1(localP1);

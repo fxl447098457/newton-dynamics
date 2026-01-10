@@ -26,7 +26,8 @@
 #define D_TERRAIN_NOISE_PERSISTANCE	0.5f
 #define D_TERRAIN_NOISE_GRID_SCALE  (1.0f / 500.0f)
 
-#define D_TERRAIN_GRID_SIZE			2.0f
+//#define D_TERRAIN_GRID_SIZE			2.0f
+#define D_TERRAIN_GRID_SIZE			1.0f
 #define D_TERRAIN_TILE_SIZE			128
 #define D_TERRAIN_ELEVATION_SCALE	32.0f
 
@@ -43,8 +44,8 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 	{
 		MakeNoiseHeightfield();
 
-		ndFloat32 minY = 1.0e20f;
-		ndFloat32 maxY = -1.0e20f;
+		ndReal minY = 1.0e20f;
+		ndReal maxY = -1.0e20f;
 		for (ndInt32 i = ndInt32(m_heightfield.GetCount()) - 1; i >= 0; --i)
 		{
 			minY = ndMin(minY, m_heightfield[i]);
@@ -75,13 +76,13 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 		const ndFloat32 persistance = D_TERRAIN_NOISE_PERSISTANCE;
 		const ndFloat32 noiseGridScale = D_TERRAIN_NOISE_GRID_SCALE;
 
-		ndFloat32 minHeight = ndFloat32(1.0e10f);
-		ndFloat32 maxHeight = ndFloat32(-1.0e10f);
+		ndReal minHeight = ndFloat32(1.0e10f);
+		ndReal maxHeight = ndFloat32(-1.0e10f);
 		for (ndInt32 z = 0; z < D_TERRAIN_HEIGHT; z++)
 		{
 			for (ndInt32 x = 0; x < D_TERRAIN_WIDTH; x++)
 			{
-				ndFloat32 noiseVal = BrownianMotion(octaves, persistance, noiseGridScale * ndFloat32(x), noiseGridScale * ndFloat32(z));
+				ndReal noiseVal = ndReal (BrownianMotion(octaves, persistance, noiseGridScale * ndFloat32(x), noiseGridScale * ndFloat32(z)));
 				//noiseVal = 0.0f;
 
 				m_heightfield[z * D_TERRAIN_WIDTH + x] = noiseVal;
@@ -93,13 +94,13 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 				m_material[z * D_TERRAIN_WIDTH + x] = 0;
 			}
 		}
-		minHeight -= m_padding.m_y;
-		maxHeight += m_padding.m_y;
+		minHeight -= ndReal(m_padding.m_y);
+		maxHeight += ndReal(m_padding.m_y);
 
-		ndFloat32 scale = D_TERRAIN_ELEVATION_SCALE / (maxHeight - minHeight);
+		ndReal scale = D_TERRAIN_ELEVATION_SCALE / (maxHeight - minHeight);
 		for (ndInt32 i = 0; i < m_heightfield.GetCapacity(); ++i)
 		{
-			ndFloat32 y = m_heightfield[i];
+			ndReal y = m_heightfield[i];
 			y = scale * y;
 			m_heightfield[i] = y;
 		}
@@ -156,9 +157,17 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 	{
 		ndVector boxP0;
 		ndVector boxP1;
+		
+		// make sure p0 and p1 are in the right order
+		const ndVector q0(localP0.GetMin(localP1) - m_padding);
+		const ndVector q1(localP0.GetMax(localP1) + m_padding);
+		CalculateMinExtend3d(q0, q1, boxP0, boxP1);
 
-		// calculate the ray bounding box
-		CalculateMinExtend2d(localP0, localP1, boxP0, boxP1);
+		// make the box a beam tha extend from 
+		// infinite positive high to -infinity high.
+		// 1.0e10 represents infinity.
+		boxP0.m_y = -ndFloat32(1.0e10f);
+		boxP1.m_y = ndFloat32(1.0e10f);
 
 		ndVector p0(localP0);
 		ndVector p1(localP1);
@@ -400,11 +409,11 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 		ndAssert(p0.m_w == ndFloat32(0.0f));
 		ndAssert(p1.m_w == ndFloat32(0.0f));
 
-		boxP0 = (m_invGridSize * (p0 - m_padding).Floor()) * m_gridSize;
-		boxP1 = (m_invGridSize * (p1 + m_gridSize).Floor()) * m_gridSize;
-
 		//boxP0 = (m_invGridSize * (p0 - m_padding).Floor()) * m_gridSize;
-		//boxP1 = (m_invGridSize * (p1 + m_padding).Ceiling()) * m_gridSize;
+		//boxP1 = (m_invGridSize * (p1 + m_gridSize).Floor()) * m_gridSize;
+
+		boxP0 = (m_invGridSize * p0.Floor()) * m_gridSize;
+		boxP1 = (m_invGridSize * (p1 + m_padding).Ceiling()) * m_gridSize;
 
 		boxP0.m_y = p0.m_y - m_padding.m_y;
 		boxP1.m_y = p1.m_y + m_padding.m_y;
@@ -412,21 +421,6 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 		ndAssert(boxP0.m_x < boxP1.m_x);
 		ndAssert(boxP0.m_y < boxP1.m_y);
 		ndAssert(boxP0.m_z < boxP1.m_z);
-	}
-
-	void CalculateMinExtend2d(const ndVector& p0, const ndVector& p1, ndVector& boxP0, ndVector& boxP1) const
-	{
-		// make sure p0 and p1 are in the right order
-		const ndVector q0(p0.GetMin(p1));
-		const ndVector q1(p0.GetMax(p1));
-		CalculateMinExtend3d(q0, q1, boxP0, boxP1);
-
-		// make the box a beam tha extend 
-		// from infinite positive high 
-		// to -infinity high
-		// 1.0e10 represents infinity.
-		boxP0.m_y = -ndFloat32(1.0e10f);
-		boxP1.m_y = ndFloat32(1.0e10f);
 	}
 
 	void CalculateMinAndMaxElevation(ndInt32 x0, ndInt32 x1, ndInt32 z0, ndInt32 z1, ndFloat32& minHeight, ndFloat32& maxHeight) const
