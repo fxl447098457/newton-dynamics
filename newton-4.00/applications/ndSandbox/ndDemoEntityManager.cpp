@@ -34,13 +34,13 @@
 //#define DEFAULT_SCENE	8		// Highfield collision
 //#define DEFAULT_SCENE	9		// static compound scene collision
 //#define DEFAULT_SCENE	10		// basic convex approximate compound shapes
-#define DEFAULT_SCENE	11		// basic procedural static collision
+//#define DEFAULT_SCENE	11		// basic procedural static collision
 //#define DEFAULT_SCENE	12		// basic model, a npd vehicle prop
 //#define DEFAULT_SCENE	13		// basic rag doll
 //#define DEFAULT_SCENE	14		// complex model, implement a complex model with joints
 //#define DEFAULT_SCENE	15		// basics multi body vehicle
 //#define DEFAULT_SCENE	16		// object Placement
-//#define DEFAULT_SCENE	17		// third person player capsule
+#define DEFAULT_SCENE	17		// third person player capsule
 //#define DEFAULT_SCENE	18		// cart pole SAC trained controller
 //#define DEFAULT_SCENE	19		// cart pole PPO trained controller
 //#define DEFAULT_SCENE	20		// unicycle PPO trained controller
@@ -519,7 +519,7 @@ ndDemoEntityManager::ndDemoEntityManager()
 	//m_showScene = true;
 	//m_showConcaveEdge = true;
 	//m_showMeshSkeleton = true;
-	m_autoSleepMode = false;
+	//m_autoSleepMode = false;
 	///m_hidePostUpdate = true;
 	//m_hideVisualMeshes = true;
 	//m_solverMode = ndWorld::ndStandardSolver;
@@ -535,7 +535,7 @@ ndDemoEntityManager::ndDemoEntityManager()
 	//m_showJointDebugInfo = true;
 	//m_showModelsDebugInfo = true;
 	//m_showCollisionMeshMode = 1;
-	m_showCollisionMeshMode = 2;	
+	//m_showCollisionMeshMode = 2;
 	//m_showCollisionMeshMode = 3;		// solid wire frame
 	m_synchronousPhysicsUpdate = true;
 	m_synchronousParticlesUpdate = true;
