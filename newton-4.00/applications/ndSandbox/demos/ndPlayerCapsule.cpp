@@ -22,6 +22,24 @@
 
 #define ND_THIRD_PERSON_CAMERA_DIST ndFloat32(-5.0f)
 
+class ndPlayerCapsuleNotify : public ndDemoEntityNotify
+{
+	public:
+	ndPlayerCapsuleNotify(ndDemoEntityManager* const manager, const ndSharedPtr<ndRenderSceneNode>& entity)
+		:ndDemoEntityNotify(manager, entity, nullptr)
+	{
+	}
+
+	void OnTransform(ndFloat32 timestep, const ndMatrix& matrix) override
+	{
+		ndDemoEntityNotify::OnTransform(timestep, matrix);
+	}
+
+	// not call for this body
+	void OnApplyExternalForce(ndInt32 threadIndex, ndFloat32 timestep) override
+	{
+	}
+};
 
 class ndPlayerCapsuleController : public ndModelNotify
 {
@@ -141,11 +159,19 @@ class ndPlayerCapsuleController : public ndModelNotify
 		localAxis[1] = ndVector(1.0f, 0.0f, 0.0f, 0.0f);
 		localAxis[2] = localAxis[0].CrossProduct(localAxis[1]);
 		
+		// create player capulse rigid body
 		ndFloat32 height = ndFloat32(1.9f);
 		ndFloat32 radio = ndFloat32(0.4f);
 		ndFloat32 mass = ndFloat32(100.0f);
 		ndSharedPtr<ndRenderSceneNode> entityDuplicate(loader.m_renderMesh->Clone());
 		ndSharedPtr<ndBody> playerBody(new ndBasicPlayerCapsule(scene, entityDuplicate, localAxis, location, mass, radio, height, height / 4.0f));
+
+		// crate a rigid body notification
+		ndSharedPtr<ndBodyNotify> playerNotify(new ndPlayerCapsuleNotify(scene, entityDuplicate));
+		playerBody->SetNotifyCallback(playerNotify);
+
+
+		// make the player a ndModel for game play logic
 		ndSharedPtr<ndModel> model(new ndModel());
 		ndSharedPtr<ndModelNotify> controller(new ndPlayerCapsuleController(scene, playerBody));
 		model->SetNotifyCallback(controller);

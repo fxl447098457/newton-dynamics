@@ -36,7 +36,7 @@ ndBasicPlayerCapsule::ndBasicPlayerCapsule(
 	matrix.m_posit = FindFloor(*world, matrix.m_posit, 200.0f);
 	
 	SetMatrix(matrix);
-	SetNotifyCallback(new ndDemoEntityNotify(scene, entity));
+	SetNotifyCallback(ndSharedPtr<ndBodyNotify>(new ndDemoEntityNotify(scene, entity)));
 }
 
 ndBasicPlayerCapsule::~ndBasicPlayerCapsule()
