@@ -267,8 +267,8 @@ ndFloat32 ndShapeHeightfield::RayCastCell(const ndFastRay& ray, ndInt32 xIndex0,
 		triangle[1] = 2;
 		triangle[2] = 3;
 
-		ndVector e10(points[2] - points[1]);
-		ndVector e20(points[3] - points[1]);
+		const ndVector e10(points[2] - points[1]);
+		const ndVector e20(points[3] - points[1]);
 		ndVector normal(e10.CrossProduct(e20));
 		normal = normal.Normalize();
 		t = ray.PolygonIntersect(normal, maxT, &points[0].m_x, sizeof(ndVector), triangle, 3);
@@ -282,7 +282,7 @@ ndFloat32 ndShapeHeightfield::RayCastCell(const ndFastRay& ray, ndInt32 xIndex0,
 		triangle[1] = 0;
 		triangle[2] = 2;
 
-		ndVector e30(points[0] - points[1]);
+		const ndVector e30(points[0] - points[1]);
 		normal = e30.CrossProduct(e10);
 		normal = normal.Normalize();
 		t = ray.PolygonIntersect(normal, maxT, &points[0].m_x, sizeof(ndVector), triangle, 3);
@@ -298,8 +298,8 @@ ndFloat32 ndShapeHeightfield::RayCastCell(const ndFastRay& ray, ndInt32 xIndex0,
 		triangle[1] = 2;
 		triangle[2] = 3;
 
-		ndVector e10(points[2] - points[0]);
-		ndVector e20(points[3] - points[0]);
+		const ndVector e10(points[2] - points[0]);
+		const ndVector e20(points[3] - points[0]);
 		ndVector normal(e10.CrossProduct(e20));
 		normal = normal.Normalize();
 		t = ray.PolygonIntersect(normal, maxT, &points[0].m_x, sizeof(ndVector), triangle, 3);
@@ -313,7 +313,7 @@ ndFloat32 ndShapeHeightfield::RayCastCell(const ndFastRay& ray, ndInt32 xIndex0,
 		triangle[1] = 3;
 		triangle[2] = 1;
 
-		ndVector e30(points[1] - points[0]);
+		const ndVector e30(points[1] - points[0]);
 		normal = e20.CrossProduct(e30);
 		normal = normal.Normalize();
 		t = ray.PolygonIntersect(normal, maxT, &points[0].m_x, sizeof(ndVector), triangle, 3);

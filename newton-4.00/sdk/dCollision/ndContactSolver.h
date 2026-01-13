@@ -70,6 +70,32 @@ class ndContactSolver: public ndDownHeap<ndMinkFace *, ndFloat32>
 		const ndShapeInstance* const shapeB, const ndMatrix& matrixB, const ndVector& velocB,
 		ndFixSizeArray<ndContactPoint, 16>& contactOut, ndContactNotify* const notification);
 
+	ndVector GetSeparatingVector() const
+	{
+		return m_separatingVector;
+	}
+
+	ndVector GetClosetVector0() const
+	{
+		return m_closestPoint0;
+	}
+
+	ndVector GetClosetVector1() const
+	{
+		return m_closestPoint1;
+	}
+
+	const ndShapeInstance& GetInstance0() const
+	{
+		return m_instance0;
+	}
+
+	const ndShapeInstance& GetInstance1() const
+	{
+		return m_instance1;
+	}
+
+
 	private:
 	ndContactSolver(ndContact* const contact, ndContactNotify* const notification, ndFloat32 timestep, ndInt32 threadId);
 	ndContactSolver(ndShapeInstance* const instance, ndContactNotify* const notification, ndFloat32 timestep, ndInt32 threadId);

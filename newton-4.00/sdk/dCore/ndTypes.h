@@ -225,12 +225,12 @@
 
 typedef float ndReal;
 typedef int8_t ndInt8;
-typedef uint8_t ndUnsigned8;
 typedef int16_t ndInt16;
-typedef uint16_t ndUnsigned16;
 typedef int32_t ndInt32;
-typedef uint32_t ndUnsigned32;
 typedef int64_t ndInt64;
+typedef uint8_t ndUnsigned8;
+typedef uint16_t ndUnsigned16;
+typedef uint32_t ndUnsigned32;
 typedef uint64_t ndUnsigned64;
 
 typedef double ndFloat64;

@@ -132,7 +132,6 @@ ndIntersectStatus ndShapeStatic_bvh::ShowDebugPolygon(void* const context, const
 	ndShapeDebugNotify::ndEdgeType edgeType[128];
 
 	ndInt32 stride = ndInt32(strideInBytes / sizeof(ndFloat32));
-
 	ndCollisionBvhShowPolyContext& data = *(ndCollisionBvhShowPolyContext*)context;
 	for (ndInt32 i = 0; i < indexCount; ++i) 
 	{
