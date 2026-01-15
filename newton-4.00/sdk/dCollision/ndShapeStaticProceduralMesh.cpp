@@ -69,7 +69,6 @@ void ndShapeStaticProceduralMesh::GetCollidingFaces(ndPolygonMeshDesc* const dat
 		ndInt32 faceCount0 = 0;
 		ndInt32 faceIndexCount0 = 0;
 		ndInt32 faceIndexCount1 = 0;
-		const ndInt32 stride = sizeof(ndVector) / sizeof(ndFloat32);
 
 		ndPolygonMeshDesc::ndStaticMeshFaceQuery& query = *data->m_staticMeshQuery;
 		ndPolygonMeshDesc::ndProceduralStaticMeshFaceQuery& meshPatch = *data->m_proceduralStaticMeshFaceQuery;
@@ -87,7 +86,7 @@ void ndShapeStaticProceduralMesh::GetCollidingFaces(ndPolygonMeshDesc* const dat
 				const ndInt32 vertexCount = faceIndexCount[i];
 				const ndInt32* const indexArray = &indices[faceIndexCount1];
 				const ndVector& faceNormal = vertex[indexArray[4]];
-				ndFloat32 dist = data->PolygonBoxRayDistance(faceNormal, 3, indexArray, stride, &vertex[0].m_x, ray);
+				ndFloat32 dist = data->PolygonBoxRayDistance(faceNormal, 3, indexArray, &vertex[0], ray);
 				if (dist < ndFloat32(1.0f))
 				{
 					hitDistance.PushBack(dist);
@@ -107,7 +106,7 @@ void ndShapeStaticProceduralMesh::GetCollidingFaces(ndPolygonMeshDesc* const dat
 				const ndInt32 vertexCount = faceIndexCount[i];
 				const ndInt32* const indexArray = &indices[faceIndexCount1];
 				const ndVector& faceNormal = vertex[indexArray[vertexCount + 1]];
-				ndFloat32 dist = data->PolygonBoxDistance(faceNormal, vertexCount, indexArray, stride, &vertex[0].m_x);
+				ndFloat32 dist = data->PolygonBoxDistance(faceNormal, vertexCount, indexArray, &vertex[0]);
 				if (dist > ndFloat32(0.0f))
 				{
 					hitDistance.PushBack(dist);
@@ -123,17 +122,8 @@ void ndShapeStaticProceduralMesh::GetCollidingFaces(ndPolygonMeshDesc* const dat
 
 		// initialize the callback data structure
 		faceIndexCount.SetCount(faceCount0);
-		data->m_vertex = &vertex[0].m_x;
-		data->m_vertexStrideInBytes = sizeof(ndVector);
-
-		//static ndInt32 xxxx;
-		//ndFloat32 xxxx1 = data->m_convexInstance->m_ownerBody->GetVelocity().m_y;
-		//ndTrace(("%d %f\n", xxxx, xxxx1));
-		//if (xxxx >= 561)
-		//{
-		//	xxxx *= 1;
-		//}
-		//xxxx++;
+		data->m_pointArray = &vertex[0];
+		data->m_vertexCount = ndInt32(patch.m_pointArray.GetCount());
 	}
 }
 

@@ -103,7 +103,7 @@ void ndShapeStatic_bvh::operator delete (void* ptr)
 	ndShapeStaticMesh::operator delete(ptr);
 }
 
-ndIntersectStatus ndShapeStatic_bvh::GetTriangleCount(void* const context, const ndFloat32* const, ndInt32, const ndInt32* const, ndInt32 indexCount, ndFloat32)
+ndIntersectStatus ndShapeStatic_bvh::GetTriangleCount(void* const context, const ndVector* const, const ndInt32* const, ndInt32 indexCount, ndFloat32)
 {
 	ndMeshVertexListIndexList& data = (*(ndMeshVertexListIndexList*)context);
 
@@ -126,17 +126,16 @@ ndShapeInfo ndShapeStatic_bvh::GetShapeInfo() const
 	return info;
 }
 
-ndIntersectStatus ndShapeStatic_bvh::ShowDebugPolygon(void* const context, const ndFloat32* const polygon, ndInt32 strideInBytes, const ndInt32* const indexArray, ndInt32 indexCount, ndFloat32)
+ndIntersectStatus ndShapeStatic_bvh::ShowDebugPolygon(void* const context, const ndVector* const vextexBuffer, const ndInt32* const indexArray, ndInt32 indexCount, ndFloat32)
 {
 	ndVector poly[128];
 	ndShapeDebugNotify::ndEdgeType edgeType[128];
 
-	ndInt32 stride = ndInt32(strideInBytes / sizeof(ndFloat32));
 	ndCollisionBvhShowPolyContext& data = *(ndCollisionBvhShowPolyContext*)context;
 	for (ndInt32 i = 0; i < indexCount; ++i) 
 	{
-		ndVector p(&polygon[indexArray[i] * stride]);
-		poly[i] = data.m_matrix.TransformVector(p & ndVector::m_triplexMask);
+		const ndVector& p = vextexBuffer[indexArray[i]];
+		poly[i] = data.m_matrix.TransformVector(p);
 		ndInt32 edgeIndexType = (indexArray[i + indexCount + 2]) & D_CONCAVE_EDGE_MASK;
 		edgeType[i] = edgeIndexType ? ndShapeDebugNotify::m_open : ndShapeDebugNotify::m_shared;
 	}
@@ -156,12 +155,11 @@ void ndShapeStatic_bvh::DebugShape(const ndMatrix& matrix, ndShapeDebugNotify& d
 	ForAllSectors(box, ndVector::m_zero, ndFloat32(1.0f), ShowDebugPolygon, &context);
 }
 
-ndFloat32 ndShapeStatic_bvh::RayHit(void* const context, const ndFloat32* const polygon, ndInt32 strideInBytes, const ndInt32* const indexArray, ndInt32 indexCount)
+ndFloat32 ndShapeStatic_bvh::RayHit(void* const context, const ndVector* const vertexBuffer, const ndInt32* const indexArray, ndInt32 indexCount)
 {
 	ndBvhRay& me = *((ndBvhRay*)context);
-	ndVector normal(&polygon[indexArray[indexCount + 1] * (strideInBytes / sizeof(ndFloat32))]);
-	normal = normal & ndVector::m_triplexMask;
-	ndFloat32 t = me.PolygonIntersect(normal, me.m_t, polygon, strideInBytes, indexArray, indexCount);
+	const ndVector normal(vertexBuffer[indexArray[indexCount + 1]]);
+	ndFloat32 t = me.PolygonIntersect(normal, me.m_t, vertexBuffer, indexArray, indexCount);
 	if (t <= (me.m_t * ndFloat32(1.0001f))) 
 	{
 		me.m_t = t;
@@ -193,16 +191,15 @@ ndFloat32 ndShapeStatic_bvh::RayCast(ndRayCastNotify& callback, const ndVector& 
 }
 
 ndIntersectStatus ndShapeStatic_bvh::CalculateHash(
-	void* const context, const ndFloat32* const polygon, ndInt32 strideInBytes,
+	void* const context, const ndVector* const vertexBuffer,
 	const ndInt32* const indexArray, ndInt32 indexCount, ndFloat32)
 {
 	ndUnsigned64* hash = (ndUnsigned64*)context;
 
-	ndInt32 stride = strideInBytes / ndInt32 (sizeof(ndFloat32));
 	for (ndInt32 i = 0; i < indexCount; ++i)
 	{
 		ndInt32 j = indexArray[i];
-		ndVector p(polygon[j * stride + 0], polygon[j * stride + 1], polygon[j * stride + 2], ndFloat32(0.0f));
+		const ndVector p(vertexBuffer[j]);
 		*hash = ndCRC64(&p.m_x, ndInt32 (sizeof(ndVector)), *hash);
 	}
 	*hash = ndCRC64(&indexArray[indexCount], ndInt32 (sizeof(ndInt32)), *hash);
@@ -228,7 +225,7 @@ ndVector ndShapeStatic_bvh::SupportVertexSpecial(const ndVector& dir, ndFloat32)
 	return support;
 }
 
-ndIntersectStatus ndShapeStatic_bvh::GetBoxTest(void* const context, const ndFloat32* const polygon, ndInt32 strideInBytes, const ndInt32* const indexArray, ndInt32 indexCount, ndFloat32 hitDistance)
+ndIntersectStatus ndShapeStatic_bvh::GetBoxTest(void* const context, const ndVector* const, const ndInt32* const, ndInt32, ndFloat32)
 {
 	// if any polygon interset the aabb, we stop the search
 	// we can do a better test here. 
@@ -245,7 +242,7 @@ void ndShapeStatic_bvh::GetFacesPatch(ndPatchMesh& patch) const
 	//ndAssert(patch.m_pointArray.GetCount());
 }
 
-ndIntersectStatus ndShapeStatic_bvh::GetPolygon(void* const context, const ndFloat32* const, ndInt32, const ndInt32* const indexArray, ndInt32 indexCount, ndFloat32 hitDistance)
+ndIntersectStatus ndShapeStatic_bvh::GetPolygon(void* const context, const ndVector* const, const ndInt32* const indexArray, ndInt32 indexCount, ndFloat32 hitDistance)
 {
 	ndPolygonMeshDesc& data = (*(ndPolygonMeshDesc*)context);
 	ndPolygonMeshDesc::ndStaticMeshFaceQuery& query = *data.m_staticMeshQuery;
@@ -264,7 +261,6 @@ ndIntersectStatus ndShapeStatic_bvh::GetPolygon(void* const context, const ndFlo
 
 void ndShapeStatic_bvh::GetCollidingFaces(ndPolygonMeshDesc* const data) const
 {
-	data->m_vertex = GetLocalVertexPool();
-	data->m_vertexStrideInBytes = GetStrideInBytes();
+	data->m_pointArray = GetLocalVertexPool();
 	ForAllSectors(*data, data->m_boxDistanceTravelInMeshSpace, data->m_maxT, GetPolygon, data);
 }

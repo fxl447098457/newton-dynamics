@@ -297,14 +297,6 @@ union ndIntPtr
 	ndInt64 m_int;
 };
 
-class ndTriplex
-{
-	public:
-	ndFloat32 m_x;
-	ndFloat32 m_y;
-	ndFloat32 m_z;
-};
-
 class ndTriplexReal
 {
 	public:

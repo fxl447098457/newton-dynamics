@@ -479,7 +479,7 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 		ndVector e20(points[3] - points[1]);
 		ndVector normal(e10.CrossProduct(e20));
 		normal = normal.Normalize();
-		t = ray.PolygonIntersect(normal, maxT, &points[0].m_x, sizeof(ndVector), triangle, 3);
+		t = ray.PolygonIntersect(normal, maxT, points, triangle, 3);
 		if (t < maxT)
 		{
 			normalOut = normal;
@@ -493,7 +493,7 @@ class ndProceduralTerrainShape : public ndShapeStaticProceduralMesh
 		ndVector e30(points[0] - points[1]);
 		normal = e30.CrossProduct(e10);
 		normal = normal.Normalize();
-		t = ray.PolygonIntersect(normal, maxT, &points[0].m_x, sizeof(ndVector), triangle, 3);
+		t = ray.PolygonIntersect(normal, maxT, points, triangle, 3);
 		if (t < maxT)
 		{
 			normalOut = normal;

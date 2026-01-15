@@ -97,16 +97,16 @@ class ndPolygonMeshDesc: public ndFastAabb
 	void Init();
 
 	ndVector m_boxDistanceTravelInMeshSpace;
-	ndInt32 m_vertexStrideInBytes;
-	ndFloat32 m_skinMargin;
 	ndShapeInstance* m_convexInstance;
 	ndShapeInstance* m_polySoupInstance;
-	ndFloat32* m_vertex;
+	ndVector* m_pointArray;
 
 	// private data;
 	ndStaticMeshFaceQuery* m_staticMeshQuery;
 	ndProceduralStaticMeshFaceQuery* m_proceduralStaticMeshFaceQuery;
 	ndFloat32 m_maxT;
+	ndFloat32 m_skinMargin;
+	ndInt32 m_vertexCount;
 	ndInt32 m_threadId;
 	bool m_doContinueCollisionTest;
 } D_GCC_NEWTON_CLASS_ALIGN_32;

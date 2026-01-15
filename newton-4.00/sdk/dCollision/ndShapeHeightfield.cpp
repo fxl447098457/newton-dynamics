@@ -271,7 +271,7 @@ ndFloat32 ndShapeHeightfield::RayCastCell(const ndFastRay& ray, ndInt32 xIndex0,
 		const ndVector e20(points[3] - points[1]);
 		ndVector normal(e10.CrossProduct(e20));
 		normal = normal.Normalize();
-		t = ray.PolygonIntersect(normal, maxT, &points[0].m_x, sizeof(ndVector), triangle, 3);
+		t = ray.PolygonIntersect(normal, maxT, points, triangle, 3);
 		if (t < maxT) 
 		{
 			normalOut = normal;
@@ -285,7 +285,7 @@ ndFloat32 ndShapeHeightfield::RayCastCell(const ndFastRay& ray, ndInt32 xIndex0,
 		const ndVector e30(points[0] - points[1]);
 		normal = e30.CrossProduct(e10);
 		normal = normal.Normalize();
-		t = ray.PolygonIntersect(normal, maxT, &points[0].m_x, sizeof(ndVector), triangle, 3);
+		t = ray.PolygonIntersect(normal, maxT, points, triangle, 3);
 		if (t < maxT) 
 		{
 			normalOut = normal;
@@ -302,7 +302,7 @@ ndFloat32 ndShapeHeightfield::RayCastCell(const ndFastRay& ray, ndInt32 xIndex0,
 		const ndVector e20(points[3] - points[0]);
 		ndVector normal(e10.CrossProduct(e20));
 		normal = normal.Normalize();
-		t = ray.PolygonIntersect(normal, maxT, &points[0].m_x, sizeof(ndVector), triangle, 3);
+		t = ray.PolygonIntersect(normal, maxT, points, triangle, 3);
 		if (t < maxT) 
 		{
 			normalOut = normal;
@@ -316,7 +316,7 @@ ndFloat32 ndShapeHeightfield::RayCastCell(const ndFastRay& ray, ndInt32 xIndex0,
 		const ndVector e30(points[1] - points[0]);
 		normal = e20.CrossProduct(e30);
 		normal = normal.Normalize();
-		t = ray.PolygonIntersect(normal, maxT, &points[0].m_x, sizeof(ndVector), triangle, 3);
+		t = ray.PolygonIntersect(normal, maxT, points, triangle, 3);
 		if (t < maxT) 
 		{
 			normalOut = normal;
@@ -1042,7 +1042,6 @@ void ndShapeHeightfield::GetCollidingFaces(ndPolygonMeshDesc* const data) const
 		ndInt32 faceCount0 = 0;
 		ndInt32 faceIndexCount0 = 0;
 		ndInt32 faceIndexCount1 = 0;
-		const ndInt32 stride = sizeof(ndVector) / sizeof(ndFloat32);
 
 		ndPolygonMeshDesc::ndStaticMeshFaceQuery& query = *data->m_staticMeshQuery;
 		ndPolygonMeshDesc::ndProceduralStaticMeshFaceQuery& meshPatch = *data->m_proceduralStaticMeshFaceQuery;
@@ -1060,7 +1059,7 @@ void ndShapeHeightfield::GetCollidingFaces(ndPolygonMeshDesc* const data) const
 				const ndInt32 vertexCount = faceIndexCount[i];
 				const ndInt32* const indexArray = &indices[faceIndexCount1];
 				const ndVector& faceNormal = vertex[indexArray[4]];
-				ndFloat32 dist = data->PolygonBoxRayDistance(faceNormal, 3, indexArray, stride, &vertex[0].m_x, ray);
+				ndFloat32 dist = data->PolygonBoxRayDistance(faceNormal, 3, indexArray, &vertex[0], ray);
 				if (dist < ndFloat32(1.0f))
 				{
 					hitDistance.PushBack(dist);
@@ -1080,7 +1079,7 @@ void ndShapeHeightfield::GetCollidingFaces(ndPolygonMeshDesc* const data) const
 				const ndInt32 vertexCount = faceIndexCount[i];
 				const ndInt32* const indexArray = &indices[faceIndexCount1];
 				const ndVector& faceNormal = vertex[indexArray[vertexCount + 1]];
-				ndFloat32 dist = data->PolygonBoxDistance(faceNormal, vertexCount, indexArray, stride, &vertex[0].m_x);
+				ndFloat32 dist = data->PolygonBoxDistance(faceNormal, vertexCount, indexArray, &vertex[0]);
 				if (dist > ndFloat32(0.0f))
 				{
 					hitDistance.PushBack(dist);
@@ -1096,8 +1095,10 @@ void ndShapeHeightfield::GetCollidingFaces(ndPolygonMeshDesc* const data) const
 
 		// initialize the callback data structure
 		faceIndexCount.SetCount(faceCount0);
-		data->m_vertex = &vertex[0].m_x;
-		data->m_vertexStrideInBytes = sizeof(ndVector);
+		//data->m_vertex = &vertex[0].m_x;
+		data->m_pointArray = &vertex[0];
+		data->m_vertexCount = ndInt32 (patch.m_pointArray.GetCount());
+		//data->m_vertexStrideInBytes = sizeof(ndVector);
 	}
 #endif
 }

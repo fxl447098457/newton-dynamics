@@ -47,16 +47,16 @@ class ndShapeConvexPolygon: public ndShapeConvex
 
 	virtual ndShapeConvexPolygon* GetAsShapeConvexPolygon();
 
-	ndVector CalculateGlobalNormal(const ndShapeInstance* const parentMesh, const ndVector& localNormal) const;
-	ndInt32 CalculateContactToConvexHullDescrete(const ndShapeInstance* const parentMesh, ndContactSolver& proxy);
-	ndInt32 CalculateContactToConvexHullContinue(const ndShapeInstance* const parentMesh, ndContactSolver& proxy);
+	ndVector CalculateGlobalNormal(const ndVector& localNormal) const;
+	ndInt32 CalculateContactToConvexHullDescrete(ndContactSolver& proxy);
+	ndInt32 CalculateContactToConvexHullContinue(ndContactSolver& proxy);
 
+	void GenerateConvexCap();
 	virtual ndFloat32 GetVolume() const;
 	virtual ndFloat32 GetBoxMinRadius() const;
 	virtual ndFloat32 GetBoxMaxRadius() const;
-	void GenerateConvexCap(const ndShapeInstance* const parentMesh);
 	virtual ndVector SupportVertex(const ndVector& dir) const;
-	bool BeamClipping(const ndVector& origin, ndFloat32 size, const ndShapeInstance* const parentMesh);
+	bool BeamClipping(const ndVector& origin, ndFloat32 size);
 	virtual ndInt32 CalculatePlaneIntersection(const ndVector& normal, const ndVector& point, ndVector* const contactsOut) const;
 
 	virtual ndFloat32 RayCast(ndRayCastNotify& callback, const ndVector& localP0, const ndVector& localP1, ndFloat32 maxT, const ndBody* const body, ndContactPoint& contactOut) const;
@@ -70,10 +70,10 @@ class ndShapeConvexPolygon: public ndShapeConvex
 	ndInt32 m_count;
 	ndInt32 m_paddedCount;
 	ndInt32 m_faceId;
-	ndInt32 m_stride;
 	ndInt32 m_faceNormalIndex;
-	
-	const ndFloat32* m_vertex;
+
+	const ndShapeInstance* m_owner;
+	const ndVector* m_vertexArray;
 	const ndInt32* m_vertexIndex;
 	const ndInt32* m_adjacentFaceEdgeNormalIndex;
 } D_GCC_NEWTON_CLASS_ALIGN_32;
