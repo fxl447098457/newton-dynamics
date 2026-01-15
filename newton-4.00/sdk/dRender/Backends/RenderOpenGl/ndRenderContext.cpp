@@ -221,9 +221,16 @@ void ndRenderContext::InitImGui(const char* const fontPathName)
 	io.KeyMap[ImGuiKey_LeftShift] = GLFW_KEY_LEFT_SHIFT;
 	io.KeyMap[ImGuiKey_RightShift] = GLFW_KEY_RIGHT_SHIFT;
 
-	for (int i = 0; i < (GLFW_KEY_Z - GLFW_KEY_A + 1); ++i)
+	// bind the letters
+	for (ndInt32 i = 0; i < (GLFW_KEY_Z - GLFW_KEY_A + 1); ++i)
 	{
 		io.KeyMap[ImGuiKey_A + i] = GLFW_KEY_A + i;
+	}
+
+	// bind ordinal numbers
+	for (ndInt32 i = 0; i < (GLFW_KEY_9 - GLFW_KEY_0 + 1); ++i)
+	{
+		io.KeyMap[ImGuiKey_0 + i] = GLFW_KEY_0 + i;
 	}
 
 #ifdef _MSC_VER 
