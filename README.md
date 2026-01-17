@@ -1,8 +1,9 @@
-This repository and the the old forum 
-<http://newtondynamics.com> is discontinued
+This repository, along with the old forum at http://newtondynamics.com
+, has been discontinued.
 
-Please visit:
+For questions, ideas, or general discussion, please use the new forum at:
+https://github.com/JulioJerez/newton-dynamics/discussions
+
+The new official repository is available at:
 https://github.com/JulioJerez/newton-dynamics
 
-and if you have any question, ideas, of point of discuion, the new forum is:
-https://github.com/JulioJerez/newton-dynamics/discussions
