@@ -1,0 +1,284 @@
+name: Build Newton Dynamics 3.13 Windows (GCC 9.3 SJLJ)
+
+on:
+  push:
+    tags: ['v*', 'newton-*']
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create GitHub Release?'
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
+
+env:
+  NEWTON_VERSION: 3.13
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - arch: x86
+            msystem: MINGW32
+            mingw_arch: i686
+            toolchain_url: https://github.com/brechtsanders/winlibs_mingw/releases/download/9.3.0-7.0.0-sjlj-r3/winlibs-mingw-w64-i686-9.3.0-7.0.0-r3-sjlj.7z 
+            cmake_generator: "MinGW Makefiles"
+            artifact_name: newton-dynamics-3.13-win32-static-gcc93-sjlj
+            extra_flags: "-DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32"
+          - arch: x64
+            msystem: MINGW64
+            mingw_arch: x86_64
+            toolchain_url: https://github.com/brechtsanders/winlibs_mingw/releases/download/9.3.0-7.0.0-sjlj-r3/winlibs-mingw-w64-x86_64-9.3.0-7.0.0-r3-sjlj.7z 
+            cmake_generator: "MinGW Makefiles"
+            artifact_name: newton-dynamics-3.13-win64-static-gcc93-sjlj
+            extra_flags: ""
+    
+    name: Build ${{ matrix.arch }}
+
+    steps:
+    - name: Install 7z
+      run: choco install 7zip -y
+
+    - name: Download winlibs Toolchain
+      run: |
+        Invoke-WebRequest -Uri "${{ matrix.toolchain_url }}" -OutFile "toolchain.7z"
+        7z x toolchain.7z -o"C:\winlibs" -y
+
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: ${{ matrix.msystem }}
+        update: true
+        install: >-
+          base-devel
+          mingw-w64-${{ matrix.mingw_arch }}-toolchain
+          mingw-w64-${{ matrix.mingw_arch }}-cmake
+          make
+          tar
+
+    - name: Download Newton Dynamics Source
+      shell: msys2 {0}
+      run: |
+        curl -L -o newton-dynamics.tar.gz "https://github.com/fxl447098457/newton-dynamics/releases/download/3.13/newton-dynamics-newton-3.13.tar.gz"
+        tar -xzf newton-dynamics.tar.gz
+        # 列出目录结构确认
+        ls -la
+        find . -name "CMakeLists.txt" -type f
+
+    - name: Configure Newton Dynamics
+      shell: msys2 {0}
+      run: |
+        # 设置工具链路径
+        export WINLIBS_PATH="/c/winlibs/${{ matrix.msystem == 'MINGW32' && 'mingw32' || 'mingw64' }}"
+        export CC="$WINLIBS_PATH/bin/${{ matrix.msystem == 'MINGW32' && 'i686-w64-mingw32-gcc' || 'x86_64-w64-mingw32-gcc' }}"
+        export CXX="$WINLIBS_PATH/bin/${{ matrix.msystem == 'MINGW32' && 'i686-w64-mingw32-g++' || 'x86_64-w64-mingw32-g++' }}"
+        export PATH="$WINLIBS_PATH/bin:$PATH"
+        
+        echo "GCC Version:"
+        $CC --version
+        echo "G++ Version:"
+        $CXX --version
+        
+        # 查找源码目录（解压后可能有不同目录名）
+        SRC_DIR=$(find . -maxdepth 1 -type d -name "*newton*" | head -1)
+        if [ -z "$SRC_DIR" ]; then
+          echo "Error: Could not find Newton Dynamics source directory"
+          exit 1
+        fi
+        echo "Source directory: $SRC_DIR"
+        
+        # 创建构建目录
+        mkdir -p build
+        cd build
+        
+        # CMake 配置 - 静态库构建
+        cmake ../$SRC_DIR \
+          -G "${{ matrix.cmake_generator }}" \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_C_COMPILER="$CC" \
+          -DCMAKE_CXX_COMPILER="$CXX" \
+          -DCMAKE_INSTALL_PREFIX=/newton-${{ matrix.arch }} \
+          -DNEWTON_BUILD_SHARED_LIBS=OFF \
+          -DNEWTON_BUILD_DEMOS=OFF \
+          -DNEWTON_BUILD_SANDBOX_DEMOS=OFF \
+          -DNEWTON_BUILD_PROFILER=OFF \
+          ${{ matrix.extra_flags }}
+          
+        # 如果上述 CMake 选项不存在，使用通用静态库选项
+        if [ $? -ne 0 ]; then
+          echo "Retrying with generic static library options..."
+          cmake ../$SRC_DIR \
+            -G "${{ matrix.cmake_generator }}" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_CXX_COMPILER="$CXX" \
+            -DCMAKE_INSTALL_PREFIX=/newton-${{ matrix.arch }} \
+            -DBUILD_SHARED_LIBS=OFF \
+            ${{ matrix.extra_flags }}
+        fi
+
+    - name: Build Newton Dynamics
+      shell: msys2 {0}
+      run: |
+        export WINLIBS_PATH="/c/winlibs/${{ matrix.msystem == 'MINGW32' && 'mingw32' || 'mingw64' }}"
+        export PATH="$WINLIBS_PATH/bin:$PATH"
+        
+        cd build
+        mingw32-make -j$(nproc) VERBOSE=1
+
+    - name: Install Newton Dynamics
+      shell: msys2 {0}
+      run: |
+        cd build
+        mingw32-make install DESTDIR=/
+        
+        # 列出安装目录内容
+        echo "Installed files:"
+        find /newton-${{ matrix.arch }} -type f 2>/dev/null || echo "Install directory not found, checking build directory..."
+        find . -name "*.a" -o -name "*.lib" | head -20
+
+    - name: Package Artifacts
+      shell: pwsh
+      run: |
+        $pkgName = "${{ matrix.artifact_name }}"
+        
+        # 确定源路径
+        $sourcePath = "C:\msys64\newton-${{ matrix.arch }}"
+        if (-not (Test-Path $sourcePath)) {
+          $sourcePath = "/newton-${{ matrix.arch }}" -replace '^/(\w)/', '$1:\' -replace '/', '\'
+        }
+        
+        # 如果安装目录不存在，从 build 目录收集
+        if (-not (Test-Path $sourcePath)) {
+          Write-Host "Install directory not found, collecting from build directory..."
+          New-Item -ItemType Directory -Force -Path $pkgName
+          
+          # 查找并复制静态库
+          $libFiles = Get-ChildItem -Path ".\build" -Recurse -Include "*.a","*.lib" -ErrorAction SilentlyContinue
+          $includeDirs = Get-ChildItem -Path ".\build" -Recurse -Directory -Filter "include" -ErrorAction SilentlyContinue
+          
+          New-Item -ItemType Directory -Force -Path "$pkgName\lib"
+          New-Item -ItemType Directory -Force -Path "$pkgName\include"
+          
+          foreach ($lib in $libFiles) {
+            Copy-Item $lib.FullName -Destination "$pkgName\lib\" -Force
+          }
+          
+          # 尝试找到源码中的头文件
+          $srcDir = Get-ChildItem -Directory -Name "*newton*" | Select-Object -First 1
+          if ($srcDir) {
+            $headerDirs = Get-ChildItem -Path $srcDir -Recurse -Directory -Filter "include" -ErrorAction SilentlyContinue
+            foreach ($hdr in $headerDirs) {
+              Copy-Item $hdr.FullName -Destination "$pkgName\" -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            # 也查找 coreLibrary_300 下的头文件
+            $coreHeaders = Get-ChildItem -Path "$srcDir\coreLibrary_300" -Include "*.h","*.hpp" -Recurse -ErrorAction SilentlyContinue
+            if ($coreHeaders) {
+              foreach ($h in $coreHeaders) {
+                $relPath = $h.FullName.Substring((Resolve-Path $srcDir).Path.Length + 1)
+                $destDir = Join-Path "$pkgName\include" (Split-Path $relPath -Parent)
+                New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+                Copy-Item $h.FullName -Destination $destDir -Force
+              }
+            }
+          }
+        } else {
+          New-Item -ItemType Directory -Force -Path $pkgName
+          Copy-Item -Path "$sourcePath\*" -Destination $pkgName -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        
+        # 创建构建信息文件
+        @"
+        Newton Dynamics ${{ env.NEWTON_VERSION }} ${{ matrix.arch }} Static Library
+        Compiler: MinGW-w64 GCC 9.3.0 (SJLJ Exception Model)
+        Toolchain: winlibs 9.3.0-7.0.0-r3
+        Build Date: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss UTC")
+        Architecture: ${{ matrix.arch }}
+        Generator: ${{ matrix.cmake_generator }}
+        "@ | Out-File -Encoding utf8 "$pkgName\BUILD_INFO.txt"
+        
+        # 列出打包内容
+        Write-Host "Packaging contents:"
+        Get-ChildItem -Path $pkgName -Recurse | Select-Object FullName
+        
+        # 压缩
+        7z a "$pkgName.7z" $pkgName\
+        Compress-Archive -Path $pkgName -DestinationPath "$pkgName.zip"
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact_name }}
+        path: |
+          ${{ matrix.artifact_name }}.zip
+          ${{ matrix.artifact_name }}.7z
+
+  release:
+    needs: build
+    runs-on: windows-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.create_release == 'true'
+    
+    steps:
+    - name: Download All Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./artifacts
+        pattern: newton-dynamics-3.13-*-gcc93-sjlj
+
+    - name: Generate Checksums
+      shell: pwsh
+      id: checksums
+      run: |
+        $checksumFile = "CHECKSUMS.txt"
+        
+        Get-ChildItem -Path "./artifacts" -Recurse -Include "*.zip","*.7z" | 
+        Get-FileHash -Algorithm SHA256 | 
+        ForEach-Object { "$($_.Hash)  $(Split-Path $_.Path -Leaf)" } | 
+        Out-File -Encoding utf8 $checksumFile
+        
+        $content = Get-Content $checksumFile -Raw
+        
+        echo "content<<EOF" >> $env:GITHUB_OUTPUT
+        echo "$content" >> $env:GITHUB_OUTPUT
+        echo "EOF" >> $env:GITHUB_OUTPUT
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: Newton Dynamics ${{ env.NEWTON_VERSION }} Windows (GCC 9.3 SJLJ) ${{ github.ref_name }}
+        body: |
+          ## Newton Dynamics 3.13 Windows 静态库 (GCC 9.3 SJLJ)
+          
+          ### 编译器信息
+          - **版本**: MinGW-w64 GCC 9.3.0 (winlibs 9.3.0-7.0.0-r3)
+          - **异常处理**: SJLJ (SetJump/LongJump)
+          - **构建环境**: Windows Server 2022 + MSYS2
+          - **CMake 生成器**: MinGW Makefiles
+          
+          ### 包含内容
+          - `newton-dynamics-3.13-win32-static-gcc93-sjlj`: x86 32位静态库
+          - `newton-dynamics-3.13-win64-static-gcc93-sjlj`: x86_64 64位静态库
+          - 头文件（位于 `include` 目录）
+          - 静态库文件（`.a` 格式，位于 `lib` 目录）
+          
+          ### 使用方法
+          链接静态库时需要添加以下系统库：
+          ```cmake
+          target_link_libraries(your_target 
+            newton
+            winmm
+            ws2_32
+          )
+          ```
+          
+          ### SHA256 校验和
+          ```
+          ${{ steps.checksums.outputs.content }}
+          ```
+        files: |
+          artifacts/**/*.zip
+          artifacts/**/*.7z
+          CHECKSUMS.txt
+        draft: false
