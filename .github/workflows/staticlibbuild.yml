@@ -27,7 +27,7 @@ jobs:
             cmake_generator: "MinGW Makefiles"
             artifact_name: newton-dynamics-3.13-win32-static-gcc93-sjlj
             extra_flags: "-DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32"
-            cmake_arch: win32-i386
+            cmake_arch: i386
           - arch: x64
             msystem: MINGW64
             mingw_arch: x86_64
@@ -35,7 +35,7 @@ jobs:
             cmake_generator: "MinGW Makefiles"
             artifact_name: newton-dynamics-3.13-win64-static-gcc93-sjlj
             extra_flags: ""
-            cmake_arch: win64-x64
+            cmake_arch: x86_64
     
     name: Build ${{ matrix.arch }}
 
