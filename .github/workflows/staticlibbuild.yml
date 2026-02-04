@@ -62,8 +62,8 @@ jobs:
     - name: Download and Install Latest CMake
       shell: pwsh
       run: |
-        # 下载 CMake 3.31.5 (最新稳定版，支持 Windows 7+)
-        $cmakeVersion = "3.31.5"
+        # 下载 CMake 4.2.3 (最新稳定版，支持 Windows 7+)
+        $cmakeVersion = "4.2.3"
         $cmakeUrl = "https://github.com/Kitware/CMake/releases/download/v$cmakeVersion/cmake-$cmakeVersion-windows-${{ matrix.cmake_arch }}.zip"
         
         Write-Host "Downloading CMake from: $cmakeUrl"
