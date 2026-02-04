@@ -83,12 +83,21 @@ jobs:
     - name: Configure Newton Dynamics
       shell: msys2 {0}
       run: |
+        # 设置工具链路径 (关键修复: 使用 Windows 风格路径)
         WINLIBS_MINGW="${{ matrix.msystem == 'MINGW32' && 'mingw32' || 'mingw64' }}"
+        WINLIBS_WIN_PATH="C:\\winlibs\\$WINLIBS_MINGW"
         export WINLIBS_PATH="/c/winlibs/$WINLIBS_MINGW"
-        export CC="$WINLIBS_PATH/bin/${{ matrix.msystem == 'MINGW32' && 'i686-w64-mingw32-gcc' || 'x86_64-w64-mingw32-gcc' }}"
-        export CXX="$WINLIBS_PATH/bin/${{ matrix.msystem == 'MINGW32' && 'i686-w64-mingw32-g++' || 'x86_64-w64-mingw32-g++' }}"
-        export PATH="$WINLIBS_PATH/bin:$PATH"
         
+        # 关键修复: 使用 Windows 风格路径设置编译器
+        export CC="$WINLIBS_WIN_PATH\\bin\\${{ matrix.msystem == 'MINGW32' && 'i686-w64-mingw32-gcc' || 'x86_64-w64-mingw32-gcc' }}.exe"
+        export CXX="$WINLIBS_WIN_PATH\\bin\\${{ matrix.msystem == 'MINGW32' && 'i686-w64-mingw32-g++' || 'x86_64-w64-mingw32-g++' }}.exe"
+        
+        # 关键修复: 将 Windows 路径添加到 PATH
+        export PATH="$WINLIBS_WIN_PATH\\bin:$PATH"
+        
+        echo "=== Compiler Paths (Windows Style) ==="
+        echo "CC: $CC"
+        echo "CXX: $CXX"
         echo "=== Compiler Versions ==="
         $CC --version | head -3
         $CXX --version | head -3
@@ -105,14 +114,14 @@ jobs:
         
         mkdir -p build && cd build
         
-        # 核心修复：添加 CMake 4.2.3 兼容参数
+        # 核心修复: 使用 Windows 路径格式的编译器
         cmake ../$SRC_DIR \
           -G "${{ matrix.cmake_generator }}" \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_C_COMPILER="$CC" \
           -DCMAKE_CXX_COMPILER="$CXX" \
           -DCMAKE_INSTALL_PREFIX=/newton-${{ matrix.arch }} \
-          -DNEWTON_BUILD_SHARED_LIBS=OFF \
+          -DTON_BUILD_SHARED_LIBS=OFF \
           -DNEWTON_BUILD_DEMOS=OFF \
           -DNEWTON_BUILD_SANDBOX_DEMOS=OFF \
           -DNEWTON_BUILD_PROFILER=OFF \
@@ -136,7 +145,8 @@ jobs:
       shell: msys2 {0}
       run: |
         cd build
-        "$WINLIBS_PATH/bin/mingw32-make.exe" -j$(nproc) VERBOSE=1 || {
+        # 使用 Windows 路径的 make
+        "$WINLIBS_WIN_PATH\\bin\\mingw32-make.exe" -j$(nproc) VERBOSE=1 || {
           echo "Build failed!"
           exit 1
         }
@@ -145,7 +155,7 @@ jobs:
       shell: msys2 {0}
       run: |
         cd build
-        "$WINLIBS_PATH/bin/mingw32-make.exe" install DESTDIR=/ 2>&1 | tee install.log || true
+        "$WINLIBS_WIN_PATH\\bin\\mingw32-make.exe" install DESTDIR=/ 2>&1 | tee install.log || true
         echo "=== Installation Results ==="
         if [ -d "/newton-${{ matrix.arch }}/lib" ]; then
           ls -lh "/newton-${{ matrix.arch }}/lib/"
@@ -185,7 +195,6 @@ jobs:
           }
         }
         
-        # 关键修复：使用变量拼接避免 YAML 解析错误
         $buildInfo = "Newton Dynamics ${{ env.NEWTON_VERSION }} $arch Static Library`n" +
                      "Compiler: MinGW-w64 GCC 9.3.0 (SJLJ Exception Model)`n" +
                      "Toolchain: winlibs 9.3.0-7.0.0-r3`n" +
@@ -245,7 +254,7 @@ jobs:
           - **版本**: MinGW-w64 GCC 9.3.0 (winlibs 9.3.0-7.0.0-r3)
           - **异常处理**: SJLJ (SetJump/LongJump) - 适合需要 32 位兼容的场景
           - **构建环境**: Windows Server + MSYS2
-          - **CMake**: 4.2.3 (官方发布版)
+          - **CMake**: 4.2.3
           - **生成器**: MinGW Makefiles
           
           ### 包含内容
