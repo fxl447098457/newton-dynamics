@@ -46,6 +46,7 @@ jobs:
     # 🔧 修复：将工具链下载和设置合并到一步，并正确添加到 PATH
     - name: Setup winlibs Toolchain
       shell: pwsh
+      id: setup_toolchain  # 🔧 添加 id 以便后续引用
       run: |
         $url = "${{ matrix.toolchain_url }}"
         Write-Host "Downloading toolchain from: $url"
@@ -60,24 +61,24 @@ jobs:
         
         # 验证解压后的路径
         $mingwDir = if ("${{ matrix.arch }}" -eq "x86") { "mingw32" } else { "mingw64" }
-        $gccExe = Join-Path $toolchainDir "$mingwDir\bin\${{ matrix.gcc_prefix }}-gcc.exe"
+        $gccPrefix = if ("${{ matrix.arch }}" -eq "x86") { "i686-w64-mingw32" } else { "x86_64-w64-mingw32" }
+        $gccExe = Join-Path $toolchainDir "$mingwDir\bin\$gccPrefix-gcc.exe"
         
         if (-not (Test-Path $gccExe)) {
           Write-Error "GCC not found at expected path: $gccExe"
-          # 列出实际内容以便调试
           Get-ChildItem -Path (Join-Path $toolchainDir $mingwDir) -Recurse -Filter "*.exe" | Select-Object -First 10
           exit 1
         }
         
         Write-Host "Found GCC at: $gccExe"
         
-        # 🔧 关键：将工具链路径添加到 GITHUB_PATH 以便后续步骤使用
+        # 将工具链路径添加到 GITHUB_PATH 以便后续步骤使用
         $binPath = Join-Path $toolchainDir "$mingwDir\bin"
         Add-Content -Path $env:GITHUB_PATH -Value $binPath
         
-        # 同时设置 GITHUB_ENV 中的环境变量供 MSYS2 使用
-        Add-Content -Path $env:GITHUB_ENV -Value "WINLIBS_PATH=$binPath"
-        Add-Content -Path $env:GITHUB_ENV -Value "MINGW_PREFIX=${{ matrix.gcc_prefix }}"
+        # 🔧 修复：使用 GITHUB_OUTPUT 而不是 GITHUB_ENV 来传递值给后续步骤的 env 块
+        Add-Content -Path $env:GITHUB_OUTPUT -Value "winlibs_path=$binPath"
+        Add-Content -Path $env:GITHUB_OUTPUT -Value "gcc_prefix=$gccPrefix"
 
     - name: Setup MSYS2
       uses: msys2/setup-msys2@v2
@@ -101,9 +102,9 @@ jobs:
     - name: Configure Newton Dynamics
       shell: msys2 {0}
       env:
-        # 🔧 关键：使用环境变量而不是重新计算
-        WINLIBS_BIN: ${{ env.WINLIBS_PATH }}
-        GCC_PREFIX: ${{ env.MINGW_PREFIX }}
+        # 🔧 修复：使用 steps 上下文引用上一步的输出，而不是 env 上下文
+        WINLIBS_BIN: ${{ steps.setup_toolchain.outputs.winlibs_path }}
+        GCC_PREFIX: ${{ steps.setup_toolchain.outputs.gcc_prefix }}
       run: |
         # 转换 Windows 路径为 MSYS2 格式
         WINLIBS_MSYS=$(cygpath -u "$WINLIBS_BIN")
@@ -136,7 +137,7 @@ jobs:
         
         mkdir -p build && cd build
         
-        # 🔧 修复：使用正确的编译器名称
+        # 使用正确的编译器名称
         cmake ../$SRC_DIR \
           -G "${{ matrix.cmake_generator }}" \
           -DCMAKE_BUILD_TYPE=Release \
@@ -148,13 +149,15 @@ jobs:
           -DNEWTON_BUILD_DEMOS=OFF \
           -DNEWTON_BUILD_SANDBOX_DEMOS=OFF \
           -DNEWTON_BUILD_PROFILER=OFF \
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
           ${{ matrix.extra_flags }}
 
     - name: Build Newton Dynamics
       shell: msys2 {0}
       env:
-        WINLIBS_BIN: ${{ env.WINLIBS_PATH }}
-        GCC_PREFIX: ${{ env.MINGW_PREFIX }}
+        # 🔧 修复：同样使用 steps 上下文
+        WINLIBS_BIN: ${{ steps.setup_toolchain.outputs.winlibs_path }}
+        GCC_PREFIX: ${{ steps.setup_toolchain.outputs.gcc_prefix }}
       run: |
         # 重新设置 PATH
         WINLIBS_MSYS=$(cygpath -u "$WINLIBS_BIN")
@@ -170,7 +173,8 @@ jobs:
     - name: Install Newton Dynamics
       shell: msys2 {0}
       env:
-        WINLIBS_BIN: ${{ env.WINLIBS_PATH }}
+        # 🔧 修复：同样使用 steps 上下文
+        WINLIBS_BIN: ${{ steps.setup_toolchain.outputs.winlibs_path }}
       run: |
         WINLIBS_MSYS=$(cygpath -u "$WINLIBS_BIN")
         export PATH="$WINLIBS_MSYS:$PATH"
