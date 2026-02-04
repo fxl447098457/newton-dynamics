@@ -27,6 +27,7 @@ jobs:
             cmake_generator: "MinGW Makefiles"
             artifact_name: newton-dynamics-3.13-win32-static-gcc93-sjlj
             extra_flags: "-DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32"
+            cmake_arch: win32-i386
           - arch: x64
             msystem: MINGW64
             mingw_arch: x86_64
@@ -34,6 +35,7 @@ jobs:
             cmake_generator: "MinGW Makefiles"
             artifact_name: newton-dynamics-3.13-win64-static-gcc93-sjlj
             extra_flags: ""
+            cmake_arch: win64-x64
     
     name: Build ${{ matrix.arch }}
 
@@ -54,9 +56,24 @@ jobs:
         install: >-
           base-devel
           mingw-w64-${{ matrix.mingw_arch }}-toolchain
-          mingw-w64-${{ matrix.mingw_arch }}-cmake
           make
           tar
+
+    - name: Download and Install Latest CMake
+      shell: pwsh
+      run: |
+        # 下载 CMake 3.31.5 (最新稳定版，支持 Windows 7+)
+        $cmakeVersion = "3.31.5"
+        $cmakeUrl = "https://github.com/Kitware/CMake/releases/download/v$cmakeVersion/cmake-$cmakeVersion-windows-${{ matrix.cmake_arch }}.zip"
+        
+        Write-Host "Downloading CMake from: $cmakeUrl"
+        Invoke-WebRequest -Uri $cmakeUrl -OutFile "cmake.zip"
+        
+        7z x cmake.zip -o"C:\cmake" -y
+        
+        # 验证
+        $cmakePath = "C:\cmake\cmake-$cmakeVersion-windows-${{ matrix.cmake_arch }}\bin"
+        & "$cmakePath\cmake.exe" --version
 
     - name: Download Newton Dynamics Source
       shell: msys2 {0}
@@ -74,12 +91,14 @@ jobs:
         export WINLIBS_PATH="/c/winlibs/${{ matrix.msystem == 'MINGW32' && 'mingw32' || 'mingw64' }}"
         export CC="$WINLIBS_PATH/bin/${{ matrix.msystem == 'MINGW32' && 'i686-w64-mingw32-gcc' || 'x86_64-w64-mingw32-gcc' }}"
         export CXX="$WINLIBS_PATH/bin/${{ matrix.msystem == 'MINGW32' && 'i686-w64-mingw32-g++' || 'x86_64-w64-mingw32-g++' }}"
-        export PATH="$WINLIBS_PATH/bin:$PATH"
+        export PATH="$WINLIBS_PATH/bin:/c/cmake/cmake-3.31.5-windows-${{ matrix.cmake_arch }}/bin:$PATH"
         
         echo "GCC Version:"
         $CC --version
         echo "G++ Version:"
         $CXX --version
+        echo "CMake Version:"
+        cmake --version
         
         # 查找源码目录（解压后可能有不同目录名）
         SRC_DIR=$(find . -maxdepth 1 -type d -name "*newton*" | head -1)
@@ -100,30 +119,28 @@ jobs:
           -DCMAKE_C_COMPILER="$CC" \
           -DCMAKE_CXX_COMPILER="$CXX" \
           -DCMAKE_INSTALL_PREFIX=/newton-${{ matrix.arch }} \
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
           -DNEWTON_BUILD_SHARED_LIBS=OFF \
           -DNEWTON_BUILD_DEMOS=OFF \
           -DNEWTON_BUILD_SANDBOX_DEMOS=OFF \
           -DNEWTON_BUILD_PROFILER=OFF \
-          ${{ matrix.extra_flags }}
-          
-        # 如果上述 CMake 选项不存在，使用通用静态库选项
-        if [ $? -ne 0 ]; then
-          echo "Retrying with generic static library options..."
-          cmake ../$SRC_DIR \
-            -G "${{ matrix.cmake_generator }}" \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER="$CC" \
-            -DCMAKE_CXX_COMPILER="$CXX" \
-            -DCMAKE_INSTALL_PREFIX=/newton-${{ matrix.arch }} \
-            -DBUILD_SHARED_LIBS=OFF \
-            ${{ matrix.extra_flags }}
-        fi
+          ${{ matrix.extra_flags }} 2>&1 || {
+            echo "First attempt failed, trying with minimal options..."
+            cmake ../$SRC_DIR \
+              -G "${{ matrix.cmake_generator }}" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_C_COMPILER="$CC" \
+              -DCMAKE_CXX_COMPILER="$CXX" \
+              -DCMAKE_INSTALL_PREFIX=/newton-${{ matrix.arch }} \
+              -DBUILD_SHARED_LIBS=OFF \
+              ${{ matrix.extra_flags }}
+          }
 
     - name: Build Newton Dynamics
       shell: msys2 {0}
       run: |
         export WINLIBS_PATH="/c/winlibs/${{ matrix.msystem == 'MINGW32' && 'mingw32' || 'mingw64' }}"
-        export PATH="$WINLIBS_PATH/bin:$PATH"
+        export PATH="$WINLIBS_PATH/bin:/c/cmake/cmake-3.31.5-windows-${{ matrix.cmake_arch }}/bin:$PATH"
         
         cd build
         mingw32-make -j$(nproc) VERBOSE=1
@@ -131,18 +148,23 @@ jobs:
     - name: Install Newton Dynamics
       shell: msys2 {0}
       run: |
+        export PATH="/c/cmake/cmake-3.31.5-windows-${{ matrix.cmake_arch }}/bin:$PATH"
         cd build
-        mingw32-make install DESTDIR=/
+        mingw32-make install DESTDIR=/ || true
         
         # 列出安装目录内容
-        echo "Installed files:"
-        find /newton-${{ matrix.arch }} -type f 2>/dev/null || echo "Install directory not found, checking build directory..."
+        echo "Checking install directory:"
+        ls -la /newton-${{ matrix.arch }} 2>/dev/null || echo "Not found at /newton-${{ matrix.arch }}"
+        
+        # 如果安装失败，手动收集
+        echo "Build directory contents:"
         find . -name "*.a" -o -name "*.lib" | head -20
 
     - name: Package Artifacts
       shell: pwsh
       run: |
         $pkgName = "${{ matrix.artifact_name }}"
+        $cmakePath = "C:\cmake\cmake-3.31.5-windows-${{ matrix.cmake_arch }}"
         
         # 确定源路径
         $sourcePath = "C:\msys64\newton-${{ matrix.arch }}"
@@ -150,43 +172,45 @@ jobs:
           $sourcePath = "/newton-${{ matrix.arch }}" -replace '^/(\w)/', '$1:\' -replace '/', '\'
         }
         
-        # 如果安装目录不存在，从 build 目录收集
-        if (-not (Test-Path $sourcePath)) {
-          Write-Host "Install directory not found, collecting from build directory..."
-          New-Item -ItemType Directory -Force -Path $pkgName
-          
-          # 查找并复制静态库
-          $libFiles = Get-ChildItem -Path ".\build" -Recurse -Include "*.a","*.lib" -ErrorAction SilentlyContinue
-          $includeDirs = Get-ChildItem -Path ".\build" -Recurse -Directory -Filter "include" -ErrorAction SilentlyContinue
-          
-          New-Item -ItemType Directory -Force -Path "$pkgName\lib"
-          New-Item -ItemType Directory -Force -Path "$pkgName\include"
-          
-          foreach ($lib in $libFiles) {
-            Copy-Item $lib.FullName -Destination "$pkgName\lib\" -Force
-          }
-          
-          # 尝试找到源码中的头文件
-          $srcDir = Get-ChildItem -Directory -Name "*newton*" | Select-Object -First 1
-          if ($srcDir) {
-            $headerDirs = Get-ChildItem -Path $srcDir -Recurse -Directory -Filter "include" -ErrorAction SilentlyContinue
-            foreach ($hdr in $headerDirs) {
-              Copy-Item $hdr.FullName -Destination "$pkgName\" -Recurse -Force -ErrorAction SilentlyContinue
-            }
-            # 也查找 coreLibrary_300 下的头文件
-            $coreHeaders = Get-ChildItem -Path "$srcDir\coreLibrary_300" -Include "*.h","*.hpp" -Recurse -ErrorAction SilentlyContinue
-            if ($coreHeaders) {
-              foreach ($h in $coreHeaders) {
-                $relPath = $h.FullName.Substring((Resolve-Path $srcDir).Path.Length + 1)
-                $destDir = Join-Path "$pkgName\include" (Split-Path $relPath -Parent)
-                New-Item -ItemType Directory -Force -Path $destDir | Out-Null
-                Copy-Item $h.FullName -Destination $destDir -Force
-              }
-            }
-          }
-        } else {
-          New-Item -ItemType Directory -Force -Path $pkgName
+        New-Item -ItemType Directory -Force -Path $pkgName
+        
+        # 如果安装目录存在，复制它
+        if (Test-Path $sourcePath) {
           Copy-Item -Path "$sourcePath\*" -Destination $pkgName -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        
+        # 确保 lib 目录存在
+        New-Item -ItemType Directory -Force -Path "$pkgName\lib"
+        New-Item -ItemType Directory -Force -Path "$pkgName\include"
+        
+        # 从 build 目录收集静态库
+        $libFiles = Get-ChildItem -Path ".\build" -Recurse -Include "*.a","*.lib" -ErrorAction SilentlyContinue
+        foreach ($lib in $libFiles) {
+          Copy-Item $lib.FullName -Destination "$pkgName\lib\" -Force
+        }
+        
+        # 从源码目录收集头文件
+        $srcDir = Get-ChildItem -Directory -Name "*newton*" | Select-Object -First 1
+        if ($srcDir) {
+          # 查找 include 目录
+          $includeDirs = Get-ChildItem -Path $srcDir -Recurse -Directory -Filter "include" -ErrorAction SilentlyContinue
+          foreach ($hdr in $includeDirs) {
+            Copy-Item $hdr.FullName -Destination "$pkgName\" -Recurse -Force -ErrorAction SilentlyContinue
+          }
+          
+          # 查找 coreLibrary_300 中的头文件
+          $coreDir = Join-Path $srcDir "coreLibrary_300"
+          if (Test-Path $coreDir) {
+            # 复制整个目录结构，但只保留头文件
+            $headers = Get-ChildItem -Path $coreDir -Recurse -Include "*.h","*.hpp"
+            foreach ($h in $headers) {
+              $relativePath = $h.FullName.Substring((Resolve-Path $coreDir).Path.Length)
+              $destPath = Join-Path "$pkgName\include\newton" $relativePath
+              $destDir = Split-Path $destPath -Parent
+              New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+              Copy-Item $h.FullName -Destination $destPath -Force
+            }
+          }
         }
         
         # 创建构建信息文件
@@ -194,6 +218,7 @@ jobs:
         Newton Dynamics ${{ env.NEWTON_VERSION }} ${{ matrix.arch }} Static Library
         Compiler: MinGW-w64 GCC 9.3.0 (SJLJ Exception Model)
         Toolchain: winlibs 9.3.0-7.0.0-r3
+        CMake Version: 3.31.5
         Build Date: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss UTC")
         Architecture: ${{ matrix.arch }}
         Generator: ${{ matrix.cmake_generator }}
@@ -201,7 +226,7 @@ jobs:
         
         # 列出打包内容
         Write-Host "Packaging contents:"
-        Get-ChildItem -Path $pkgName -Recurse | Select-Object FullName
+        Get-ChildItem -Path $pkgName -Recurse | Select-Object FullName, Length | Format-Table -AutoSize
         
         # 压缩
         7z a "$pkgName.7z" $pkgName\
@@ -255,7 +280,8 @@ jobs:
           - **版本**: MinGW-w64 GCC 9.3.0 (winlibs 9.3.0-7.0.0-r3)
           - **异常处理**: SJLJ (SetJump/LongJump)
           - **构建环境**: Windows Server 2022 + MSYS2
-          - **CMake 生成器**: MinGW Makefiles
+          - **CMake**: 3.31.5
+          - **生成器**: MinGW Makefiles
           
           ### 包含内容
           - `newton-dynamics-3.13-win32-static-gcc93-sjlj`: x86 32位静态库
