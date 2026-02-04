@@ -249,6 +249,25 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.create_release == 'true'
     
     steps:
+    # 🔧 新增：检出代码（需要 token 来推送 tag）
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0  # 获取完整历史以便打 tag
+    # 🔧 关键：手动触发时自动创建 tag
+    - name: Create Tag for Manual Release
+      if: github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true'
+      shell: bash
+      run: |
+        TAG_NAME="build-$(date +%Y%m%d-%H%M%S)"
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git tag "$TAG_NAME"
+        git push origin "$TAG_NAME"
+        echo "RELEASE_TAG=$TAG_NAME" >> $GITHUB_ENV
+        echo "Created tag: $TAG_NAME"
+
     - name: Download All Artifacts
       uses: actions/download-artifact@v4
       with:
@@ -271,33 +290,18 @@ jobs:
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
-        name: Newton Dynamics ${{ env.NEWTON_VERSION }} Windows (GCC 9.3 SJLJ) ${{ github.ref_name }}
+        # 🔧 关键：使用自动创建的 tag 或已有的 tag
+        tag_name: ${{ env.RELEASE_TAG || github.ref_name }}
+        name: Newton Dynamics ${{ env.NEWTON_VERSION }} Windows (GCC 9.3 SJLJ) ${{ env.RELEASE_TAG || github.ref_name }}
         body: |
           ## Newton Dynamics 3.13 Windows 静态库 (GCC 9.3 SJLJ)
           
+          ${{ github.event_name == 'workflow_dispatch' && '**手动触发构建**' || '' }}
+          
           ### 编译器信息
           - **版本**: MinGW-w64 GCC 9.3.0 (winlibs 9.3.0-7.0.0-r3)
-          - **异常处理**: SJLJ (SetJump/LongJump) - 适合需要 32 位兼容的场景
-          - **构建环境**: Windows Server + MSYS2
-          - **CMake**: 4.2.3
-          - **生成器**: MinGW Makefiles
-          
-          ### 包含内容
-          - `newton-dynamics-3.13-win32-static-gcc93-sjlj`: x86 32位静态库（含 `-m32` 标志）
-          - `newton-dynamics-3.13-win64-static-gcc93-sjlj`: x86_64 64位静态库
-          - 头文件（`include/` 目录）
-          - 静态库（`lib/` 目录，`.a` 格式）
-          
-          ### 链接依赖
-          静态链接时需添加系统库：
-          ```cmake
-          target_link_libraries(your_target 
-            newton
-            winmm
-            ws2_32
-            imm32
-          )
-          ```
+          - **异常处理**: SJLJ (SetJump/LongJump)
+          - **架构**: x86 / x64
           
           ### SHA256 校验和
           ```
