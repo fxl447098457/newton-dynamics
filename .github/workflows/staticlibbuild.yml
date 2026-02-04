@@ -60,15 +60,13 @@ jobs:
           }
         }
 
-    - name: Setup MSYS2 with CMake
+    - name: Setup MSYS2
       uses: msys2/setup-msys2@v2
       with:
         msystem: ${{ matrix.msystem }}
         update: true
         install: >-
           base-devel
-          mingw-w64-${{ matrix.mingw_arch }}-toolchain
-          mingw-w64-${{ matrix.mingw_arch }}-cmake
           make
           tar
 
@@ -83,25 +81,26 @@ jobs:
     - name: Configure Newton Dynamics
       shell: msys2 {0}
       run: |
-        # 设置工具链路径 (关键修复: 使用 MSYS2 兼容路径)
+        # 关键修复: 使用 MSYS2 原生路径格式
         WINLIBS_MINGW="${{ matrix.msystem == 'MINGW32' && 'mingw32' || 'mingw64' }}"
         export WINLIBS_PATH="/c/winlibs/$WINLIBS_MINGW"
         
-        # 关键修复: 设置 PATH 为 MSYS2 格式
+        # 关键修复: 优先使用 winlibs 工具链
         export PATH="$WINLIBS_PATH/bin:$PATH"
         
-        echo "=== PATH (MSYS2 Format) ==="
+        # 验证工具链 (关键诊断)
+        echo "=== PATH ==="
         echo "$PATH"
         echo "=== Compiler Check ==="
-        which i686-w64-mingw32-gcc || echo "GCC not in PATH!"
-        which make || echo "Make not in PATH!"
-        
+        which i686-w64-mingw32-gcc || echo "GCC not found in PATH!"
+        which mingw32-make || echo "Make not found in PATH!"
         echo "=== Compiler Versions ==="
         i686-w64-mingw32-gcc --version | head -3
         i686-w64-mingw32-g++ --version | head -3
         echo "=== CMake Version ==="
         cmake --version
         
+        # 查找源码目录
         SRC_DIR=$(find . -maxdepth 2 -type d -name "*newton*" | grep -v ".git" | head -1)
         if [ -z "$SRC_DIR" ]; then
           echo "ERROR: Could not find Newton source directory"
@@ -110,9 +109,10 @@ jobs:
         fi
         echo "Source directory: $SRC_DIR"
         
+        # 创建构建目录
         mkdir -p build && cd build
         
-        # 核心修复: 使用 PATH 中的命令名
+        # CMake 配置
         cmake ../$SRC_DIR \
           -G "${{ matrix.cmake_generator }}" \
           -DCMAKE_BUILD_TYPE=Release \
@@ -127,7 +127,7 @@ jobs:
           -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
           -DCMAKE_POLICY_DEFAULT_CMP0150=NEW \
           || {
-            echo "Fallback configuration..."
+            echo "CMake configuration failed with standard options, retrying with minimal options..."
             cmake ../$SRC_DIR \
               -G "${{ matrix.cmake_generator }}" \
               -DCMAKE_BUILD_TYPE=Release \
@@ -142,9 +142,20 @@ jobs:
     - name: Build Newton Dynamics
       shell: msys2 {0}
       run: |
+        # 关键修复: 重新设置 PATH (每个步骤独立)
+        WINLIBS_MINGW="${{ matrix.msystem == 'MINGW32' && 'mingw32' || 'mingw64' }}"
+        export WINLIBS_PATH="/c/winlibs/$WINLIBS_MINGW"
+        export PATH="$WINLIBS_PATH/bin:$PATH"
+        
+        # 验证工具链 (关键诊断)
+        echo "=== PATH ==="
+        echo "$PATH"
+        echo "=== Compiler Check ==="
+        which i686-w64-mingw32-gcc || echo "GCC not found in PATH!"
+        which mingw32-make || echo "Make not found in PATH!"
+        
         cd build
-        # 关键修复: 直接使用命令名 (PATH 已设置)
-        make -j$(nproc) VERBOSE=1 || {
+        mingw32-make -j$(nproc) VERBOSE=1 || {
           echo "Build failed!"
           exit 1
         }
@@ -152,9 +163,13 @@ jobs:
     - name: Install Newton Dynamics
       shell: msys2 {0}
       run: |
+        # 关键修复: 重新设置 PATH (每个步骤独立)
+        WINLIBS_MINGW="${{ matrix.msystem == 'MINGW32' && 'mingw32' || 'mingw64' }}"
+        export WINLIBS_PATH="/c/winlibs/$WINLIBS_MINGW"
+        export PATH="$WINLIBS_PATH/bin:$PATH"
+        
         cd build
-        # 关键修复: 直接使用命令名
-        make install DESTDIR=/ 2>&1 | tee install.log || true
+        mingw32-make install DESTDIR=/ 2>&1 | tee install.log || true
         echo "=== Installation Results ==="
         if [ -d "/newton-${{ matrix.arch }}/lib" ]; then
           ls -lh "/newton-${{ matrix.arch }}/lib/"
