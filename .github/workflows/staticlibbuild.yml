@@ -48,7 +48,6 @@ jobs:
         Write-Host "Downloading toolchain from: $url"
         Invoke-WebRequest -Uri $url -OutFile toolchain.7z
         7z x toolchain.7z -o"C:\winlibs" -y
-        # 验证工具链安装
         if ("${{ matrix.arch }}" -eq "x86") {
           if (-not (Test-Path "C:\winlibs\mingw32\bin\i686-w64-mingw32-gcc.exe")) {
             Write-Error "Toolchain not found!"
@@ -84,23 +83,18 @@ jobs:
     - name: Configure Newton Dynamics
       shell: msys2 {0}
       run: |
-        # 设置 SJLJ 工具链路径
         WINLIBS_MINGW="${{ matrix.msystem == 'MINGW32' && 'mingw32' || 'mingw64' }}"
         export WINLIBS_PATH="/c/winlibs/$WINLIBS_MINGW"
         export CC="$WINLIBS_PATH/bin/${{ matrix.msystem == 'MINGW32' && 'i686-w64-mingw32-gcc' || 'x86_64-w64-mingw32-gcc' }}"
         export CXX="$WINLIBS_PATH/bin/${{ matrix.msystem == 'MINGW32' && 'i686-w64-mingw32-g++' || 'x86_64-w64-mingw32-g++' }}"
-        
-        # 优先使用工具链自带的 bin 目录
         export PATH="$WINLIBS_PATH/bin:$PATH"
         
-        # 验证工具链
         echo "=== Compiler Versions ==="
         $CC --version | head -3
         $CXX --version | head -3
         echo "=== CMake Version ==="
         cmake --version
         
-        # 查找源码目录
         SRC_DIR=$(find . -maxdepth 2 -type d -name "*newton*" | grep -v ".git" | head -1)
         if [ -z "$SRC_DIR" ]; then
           echo "ERROR: Could not find Newton source directory"
@@ -109,10 +103,9 @@ jobs:
         fi
         echo "Source directory: $SRC_DIR"
         
-        # 创建构建目录
         mkdir -p build && cd build
         
-        # CMake 配置（静态库）
+        # 核心修复：添加 CMake 4.2.3 兼容参数
         cmake ../$SRC_DIR \
           -G "${{ matrix.cmake_generator }}" \
           -DCMAKE_BUILD_TYPE=Release \
@@ -123,16 +116,26 @@ jobs:
           -DNEWTON_BUILD_DEMOS=OFF \
           -DNEWTON_BUILD_SANDBOX_DEMOS=OFF \
           -DNEWTON_BUILD_PROFILER=OFF \
-          ${{ matrix.extra_flags }} || {
-            echo "CMake configuration failed!"
-            exit 1
+          ${{ matrix.extra_flags }} \
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+          -DCMAKE_POLICY_DEFAULT_CMP0150=NEW \
+          || {
+            echo "Fallback configuration..."
+            cmake ../$SRC_DIR \
+              -G "${{ matrix.cmake_generator }}" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_C_COMPILER="$CC" \
+              -DCMAKE_CXX_COMPILER="$CXX" \
+              -DCMAKE_INSTALL_PREFIX=/newton-${{ matrix.arch }} \
+              -DBUILD_SHARED_LIBS=OFF \
+              ${{ matrix.extra_flags }} \
+              -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           }
 
     - name: Build Newton Dynamics
       shell: msys2 {0}
       run: |
         cd build
-        # 使用工具链的 make（兼容性更好）
         "$WINLIBS_PATH/bin/mingw32-make.exe" -j$(nproc) VERBOSE=1 || {
           echo "Build failed!"
           exit 1
@@ -143,8 +146,6 @@ jobs:
       run: |
         cd build
         "$WINLIBS_PATH/bin/mingw32-make.exe" install DESTDIR=/ 2>&1 | tee install.log || true
-        
-        # 验证安装结果
         echo "=== Installation Results ==="
         if [ -d "/newton-${{ matrix.arch }}/lib" ]; then
           ls -lh "/newton-${{ matrix.arch }}/lib/"
@@ -158,12 +159,9 @@ jobs:
       run: |
         $pkgName = "${{ matrix.artifact_name }}"
         $arch = "${{ matrix.arch }}"
-        
-        # 创建包目录
         New-Item -ItemType Directory -Force -Path "$pkgName\lib" | Out-Null
         New-Item -ItemType Directory -Force -Path "$pkgName\include" | Out-Null
         
-        # 1. 收集静态库（优先从 install 目录，其次 build 目录）
         $installPath = "C:\msys64\newton-$arch"
         $libFiles = @()
         if (Test-Path "$installPath\lib") {
@@ -175,39 +173,31 @@ jobs:
           Copy-Item $lib.FullName -Destination "$pkgName\lib\" -Force
         }
         
-        # 2. 收集头文件
         $srcDir = Get-ChildItem -Directory | Where-Object { $_.Name -like "*newton*" } | Select-Object -First 1
         if ($srcDir) {
-          # 复制 NewtonDynamics SDK 头文件
           $sdkInclude = Join-Path $srcDir.FullName "newton-4.00\sdk\NewtonDynamics\include"
           if (Test-Path $sdkInclude) {
             Copy-Item "$sdkInclude\*" -Destination "$pkgName\include\" -Recurse -Force
           }
-          
-          # 复制 coreLibrary 头文件
           $coreInclude = Join-Path $srcDir.FullName "coreLibrary_300\source\coreLibrary_300\include"
           if (Test-Path $coreInclude) {
             Copy-Item "$coreInclude\*" -Destination "$pkgName\include\" -Recurse -Force -ErrorAction SilentlyContinue
           }
         }
         
-        # 3. 创建构建信息 (关键修复: 使用变量避免YAML解析问题)
+        # 关键修复：使用变量拼接避免 YAML 解析错误
         $buildInfo = "Newton Dynamics ${{ env.NEWTON_VERSION }} $arch Static Library`n" +
                      "Compiler: MinGW-w64 GCC 9.3.0 (SJLJ Exception Model)`n" +
                      "Toolchain: winlibs 9.3.0-7.0.0-r3`n" +
-                     "CMake Version: $(cmake --version | head -1)`n" +
+                     "CMake Version: $(cmake --version | Select-Object -First 1)`n" +
                      "Build Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')`n" +
                      "Architecture: $arch`n" +
                      "Generator: ${{ matrix.cmake_generator }}"
-        
-        # 使用单引号避免路径转义问题
         $buildInfo | Out-File -Encoding utf8 -FilePath "$pkgName\BUILD_INFO.txt"
         
-        # 4. 列出内容
         Write-Host "=== Packaging Contents ==="
         Get-ChildItem "$pkgName" -Recurse | Select-Object FullName
         
-        # 5. 压缩
         7z a "${pkgName}.7z" "$pkgName\" -mx=9
         Compress-Archive -Path "$pkgName" -DestinationPath "${pkgName}.zip" -CompressionLevel Optimal
 
@@ -241,9 +231,8 @@ jobs:
           Get-FileHash -Algorithm SHA256 | 
           ForEach-Object { "$($_.Hash)  $(Split-Path $_.Path -Leaf)" } | 
           Out-File -Encoding utf8 $checksumFile
-        
         $content = (Get-Content $checksumFile -Raw).Trim()
-        "content<<EOF`n$content`nEOF" >> $env:GITHUB_OUTPUT
+        "content<<EOF`n$content`nEOF" | Out-File -Append $env:GITHUB_OUTPUT
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
@@ -256,7 +245,7 @@ jobs:
           - **版本**: MinGW-w64 GCC 9.3.0 (winlibs 9.3.0-7.0.0-r3)
           - **异常处理**: SJLJ (SetJump/LongJump) - 适合需要 32 位兼容的场景
           - **构建环境**: Windows Server + MSYS2
-          - **CMake**: 通过 MSYS2 安装的官方包
+          - **CMake**: 4.2.3 (官方发布版)
           - **生成器**: MinGW Makefiles
           
           ### 包含内容
@@ -272,7 +261,7 @@ jobs:
             newton
             winmm
             ws2_32
-            imm32  # 可选，取决于使用场景
+            imm32
           )
           ```
           
