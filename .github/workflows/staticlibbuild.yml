@@ -23,17 +23,19 @@ jobs:
           - arch: x86
             msystem: MINGW32
             mingw_arch: i686
-            toolchain_url: https://github.com/brechtsanders/winlibs_mingw/releases/download/9.3.0-7.0.0-sjlj-r3/winlibs-mingw-w64-i686-9.3.0-7.0.0-r3-sjlj.7z
+            toolchain_url: https://github.com/brechtsanders/winlibs_mingw/releases/download/9.3.0-7.0.0-sjlj-r3/winlibs-mingw-w64-i686-9.3.0-7.0.0-r3-sjlj.7z 
             cmake_generator: "MinGW Makefiles"
             artifact_name: newton-dynamics-3.13-win32-static-gcc93-sjlj
             extra_flags: "-DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32"
+            gcc_prefix: i686-w64-mingw32
           - arch: x64
             msystem: MINGW64
             mingw_arch: x86_64
-            toolchain_url: https://github.com/brechtsanders/winlibs_mingw/releases/download/9.3.0-7.0.0-sjlj-r3/winlibs-mingw-w64-x86_64-9.3.0-7.0.0-r3-sjlj.7z
+            toolchain_url: https://github.com/brechtsanders/winlibs_mingw/releases/download/9.3.0-7.0.0-sjlj-r3/winlibs-mingw-w64-x86_64-9.3.0-7.0.0-r3-sjlj.7z 
             cmake_generator: "MinGW Makefiles"
             artifact_name: newton-dynamics-3.13-win64-static-gcc93-sjlj
             extra_flags: ""
+            gcc_prefix: x86_64-w64-mingw32
 
     name: Build ${{ matrix.arch }}
 
@@ -41,24 +43,41 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Download winlibs Toolchain
+    # 🔧 修复：将工具链下载和设置合并到一步，并正确添加到 PATH
+    - name: Setup winlibs Toolchain
       shell: pwsh
       run: |
         $url = "${{ matrix.toolchain_url }}"
         Write-Host "Downloading toolchain from: $url"
+        
+        # 创建工具链目录
+        $toolchainDir = "C:\winlibs"
+        New-Item -ItemType Directory -Force -Path $toolchainDir | Out-Null
+        
+        # 下载并解压
         Invoke-WebRequest -Uri $url -OutFile toolchain.7z
-        7z x toolchain.7z -o"C:\winlibs" -y
-        if ("${{ matrix.arch }}" -eq "x86") {
-          if (-not (Test-Path "C:\winlibs\mingw32\bin\i686-w64-mingw32-gcc.exe")) {
-            Write-Error "Toolchain not found!"
-            exit 1
-          }
-        } else {
-          if (-not (Test-Path "C:\winlibs\mingw64\bin\x86_64-w64-mingw32-gcc.exe")) {
-            Write-Error "Toolchain not found!"
-            exit 1
-          }
+        7z x toolchain.7z -o"$toolchainDir" -y
+        
+        # 验证解压后的路径
+        $mingwDir = if ("${{ matrix.arch }}" -eq "x86") { "mingw32" } else { "mingw64" }
+        $gccExe = Join-Path $toolchainDir "$mingwDir\bin\${{ matrix.gcc_prefix }}-gcc.exe"
+        
+        if (-not (Test-Path $gccExe)) {
+          Write-Error "GCC not found at expected path: $gccExe"
+          # 列出实际内容以便调试
+          Get-ChildItem -Path (Join-Path $toolchainDir $mingwDir) -Recurse -Filter "*.exe" | Select-Object -First 10
+          exit 1
         }
+        
+        Write-Host "Found GCC at: $gccExe"
+        
+        # 🔧 关键：将工具链路径添加到 GITHUB_PATH 以便后续步骤使用
+        $binPath = Join-Path $toolchainDir "$mingwDir\bin"
+        Add-Content -Path $env:GITHUB_PATH -Value $binPath
+        
+        # 同时设置 GITHUB_ENV 中的环境变量供 MSYS2 使用
+        Add-Content -Path $env:GITHUB_ENV -Value "WINLIBS_PATH=$binPath"
+        Add-Content -Path $env:GITHUB_ENV -Value "MINGW_PREFIX=${{ matrix.gcc_prefix }}"
 
     - name: Setup MSYS2
       uses: msys2/setup-msys2@v2
@@ -68,7 +87,8 @@ jobs:
         install: >-
           base-devel
           make
-          tar
+          mingw-w64-${{ matrix.mingw_arch }}-cmake
+          mingw-w64-${{ matrix.mingw_arch }}-ninja
 
     - name: Download Newton Dynamics Source
       shell: msys2 {0}
@@ -80,25 +100,30 @@ jobs:
 
     - name: Configure Newton Dynamics
       shell: msys2 {0}
+      env:
+        # 🔧 关键：使用环境变量而不是重新计算
+        WINLIBS_BIN: ${{ env.WINLIBS_PATH }}
+        GCC_PREFIX: ${{ env.MINGW_PREFIX }}
       run: |
-        # 关键修复: 使用 MSYS2 原生路径格式
-        WINLIBS_MINGW="${{ matrix.msystem == 'MINGW32' && 'mingw32' || 'mingw64' }}"
-        export WINLIBS_PATH="/c/winlibs/$WINLIBS_MINGW"
+        # 转换 Windows 路径为 MSYS2 格式
+        WINLIBS_MSYS=$(cygpath -u "$WINLIBS_BIN")
+        echo "Winlibs MSYS path: $WINLIBS_MSYS"
         
-        # 关键修复: 优先使用 winlibs 工具链
-        export PATH="$WINLIBS_PATH/bin:$PATH"
+        # 添加到 PATH (确保在最前面)
+        export PATH="$WINLIBS_MSYS:$PATH"
         
-        # 验证工具链 (关键诊断)
-        echo "=== PATH ==="
-        echo "$PATH"
+        # 验证工具链
+        echo "=== PATH (first 5 entries) ==="
+        echo "$PATH" | tr ':' '\n' | head -5
+        
         echo "=== Compiler Check ==="
-        which i686-w64-mingw32-gcc || echo "GCC not found in PATH!"
-        which mingw32-make || echo "Make not found in PATH!"
+        which ${GCC_PREFIX}-gcc || { echo "GCC not found!"; exit 1; }
+        which ${GCC_PREFIX}-g++ || { echo "G++ not found!"; exit 1; }
+        which mingw32-make || { echo "mingw32-make not found!"; exit 1; }
+        
         echo "=== Compiler Versions ==="
-        i686-w64-mingw32-gcc --version | head -3
-        i686-w64-mingw32-g++ --version | head -3
-        echo "=== CMake Version ==="
-        cmake --version
+        ${GCC_PREFIX}-gcc --version | head -2
+        ${GCC_PREFIX}-g++ --version | head -2
         
         # 查找源码目录
         SRC_DIR=$(find . -maxdepth 2 -type d -name "*newton*" | grep -v ".git" | head -1)
@@ -109,67 +134,50 @@ jobs:
         fi
         echo "Source directory: $SRC_DIR"
         
-        # 创建构建目录
         mkdir -p build && cd build
         
-        # CMake 配置
+        # 🔧 修复：使用正确的编译器名称
         cmake ../$SRC_DIR \
           -G "${{ matrix.cmake_generator }}" \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_C_COMPILER="i686-w64-mingw32-gcc" \
-          -DCMAKE_CXX_COMPILER="i686-w64-mingw32-g++" \
+          -DCMAKE_C_COMPILER="${GCC_PREFIX}-gcc" \
+          -DCMAKE_CXX_COMPILER="${GCC_PREFIX}-g++" \
+          -DCMAKE_RC_COMPILER="${GCC_PREFIX}-windres" \
           -DCMAKE_INSTALL_PREFIX=/newton-${{ matrix.arch }} \
           -DNEWTON_BUILD_SHARED_LIBS=OFF \
           -DNEWTON_BUILD_DEMOS=OFF \
           -DNEWTON_BUILD_SANDBOX_DEMOS=OFF \
           -DNEWTON_BUILD_PROFILER=OFF \
-          ${{ matrix.extra_flags }} \
-          -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-          -DCMAKE_POLICY_DEFAULT_CMP0150=NEW \
-          || {
-            echo "CMake configuration failed with standard options, retrying with minimal options..."
-            cmake ../$SRC_DIR \
-              -G "${{ matrix.cmake_generator }}" \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_C_COMPILER="i686-w64-mingw32-gcc" \
-              -DCMAKE_CXX_COMPILER="i686-w64-mingw32-g++" \
-              -DCMAKE_INSTALL_PREFIX=/newton-${{ matrix.arch }} \
-              -DBUILD_SHARED_LIBS=OFF \
-              ${{ matrix.extra_flags }} \
-              -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-          }
+          ${{ matrix.extra_flags }}
 
     - name: Build Newton Dynamics
       shell: msys2 {0}
+      env:
+        WINLIBS_BIN: ${{ env.WINLIBS_PATH }}
+        GCC_PREFIX: ${{ env.MINGW_PREFIX }}
       run: |
-        # 关键修复: 重新设置 PATH (每个步骤独立)
-        WINLIBS_MINGW="${{ matrix.msystem == 'MINGW32' && 'mingw32' || 'mingw64' }}"
-        export WINLIBS_PATH="/c/winlibs/$WINLIBS_MINGW"
-        export PATH="$WINLIBS_PATH/bin:$PATH"
+        # 重新设置 PATH
+        WINLIBS_MSYS=$(cygpath -u "$WINLIBS_BIN")
+        export PATH="$WINLIBS_MSYS:$PATH"
         
-        # 验证工具链 (关键诊断)
-        echo "=== PATH ==="
-        echo "$PATH"
-        echo "=== Compiler Check ==="
-        which i686-w64-mingw32-gcc || echo "GCC not found in PATH!"
-        which mingw32-make || echo "Make not found in PATH!"
+        # 验证
+        which ${GCC_PREFIX}-gcc || { echo "GCC not found!"; exit 1; }
+        which mingw32-make || { echo "mingw32-make not found!"; exit 1; }
         
         cd build
-        mingw32-make -j$(nproc) VERBOSE=1 || {
-          echo "Build failed!"
-          exit 1
-        }
+        mingw32-make -j$(nproc) VERBOSE=1
 
     - name: Install Newton Dynamics
       shell: msys2 {0}
+      env:
+        WINLIBS_BIN: ${{ env.WINLIBS_PATH }}
       run: |
-        # 关键修复: 重新设置 PATH (每个步骤独立)
-        WINLIBS_MINGW="${{ matrix.msystem == 'MINGW32' && 'mingw32' || 'mingw64' }}"
-        export WINLIBS_PATH="/c/winlibs/$WINLIBS_MINGW"
-        export PATH="$WINLIBS_PATH/bin:$PATH"
+        WINLIBS_MSYS=$(cygpath -u "$WINLIBS_BIN")
+        export PATH="$WINLIBS_MSYS:$PATH"
         
         cd build
         mingw32-make install DESTDIR=/ 2>&1 | tee install.log || true
+        
         echo "=== Installation Results ==="
         if [ -d "/newton-${{ matrix.arch }}/lib" ]; then
           ls -lh "/newton-${{ matrix.arch }}/lib/"
@@ -212,7 +220,6 @@ jobs:
         $buildInfo = "Newton Dynamics ${{ env.NEWTON_VERSION }} $arch Static Library`n" +
                      "Compiler: MinGW-w64 GCC 9.3.0 (SJLJ Exception Model)`n" +
                      "Toolchain: winlibs 9.3.0-7.0.0-r3`n" +
-                     "CMake Version: $(cmake --version | Select-Object -First 1)`n" +
                      "Build Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')`n" +
                      "Architecture: $arch`n" +
                      "Generator: ${{ matrix.cmake_generator }}"
